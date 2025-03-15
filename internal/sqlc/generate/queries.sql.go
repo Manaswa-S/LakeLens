@@ -7,30 +7,38 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getUsers = `-- name: GetUsers :many
-SELECT id FROM users
+const getCredentials = `-- name: GetCredentials :one
+SELECT cred_id, key_id, key, region 
+FROM credentials 
+WHERE cred_id = $1
 `
 
-func (q *Queries) GetUsers(ctx context.Context) ([]pgtype.Int8, error) {
-	rows, err := q.db.Query(ctx, getUsers)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []pgtype.Int8
-	for rows.Next() {
-		var id pgtype.Int8
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetCredentials(ctx context.Context, credID int64) (Credential, error) {
+	row := q.db.QueryRow(ctx, getCredentials, credID)
+	var i Credential
+	err := row.Scan(
+		&i.CredID,
+		&i.KeyID,
+		&i.Key,
+		&i.Region,
+	)
+	return i, err
+}
+
+const insertNewCredentails = `-- name: InsertNewCredentails :exec
+INSERT INTO credentials (key_id, key, region)
+VALUES ($1, $2, $3)
+`
+
+type InsertNewCredentailsParams struct {
+	KeyID  string
+	Key    string
+	Region string
+}
+
+func (q *Queries) InsertNewCredentails(ctx context.Context, arg InsertNewCredentailsParams) error {
+	_, err := q.db.Exec(ctx, insertNewCredentails, arg.KeyID, arg.Key, arg.Region)
+	return err
 }

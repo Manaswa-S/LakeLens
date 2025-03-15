@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
+	"main.go/cmd/db"
 	"main.go/cmd/server"
 )		
 
@@ -20,6 +21,13 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
+	err = db.InitDB()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 
 	err = server.InitHTTPServer()
 	if err != nil {

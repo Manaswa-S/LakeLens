@@ -4,10 +4,9 @@
 
 package sqlc
 
-import (
-	"github.com/jackc/pgx/v5/pgtype"
-)
-
-type User struct {
-	ID pgtype.Int8
+type Credential struct {
+	CredID int64
+	KeyID  string
+	Key    string
+	Region string
 }

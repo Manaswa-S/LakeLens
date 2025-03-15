@@ -1,21 +1,39 @@
 package cutils
 
-// func ReadParquetFileMetadata() error {
+import (
+	"fmt"
 
-// 	for _, fKey := range fileKeys {
-// 		fr, err := local.NewLocalFileReader(fKey)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		defer fr.Close()
+	"github.com/xitongsys/parquet-go-source/local"
+	"github.com/xitongsys/parquet-go/reader"
+	"main.go/internal/dto"
+)
 
-// 		pr, err := reader.NewParquetReader(fr, nil, 4)
-// 		if err != nil {
-// 			return err
-// 		}
+func ReadParquetFileMetadata(filePaths []string) ([]*dto.ParquetClean, error) {
+	
+	cleanParquet := make([]*dto.ParquetClean, 0)
 
-// 		filePR = append(filePR, pr)
-// 	}
+	for _, path := range filePaths {
 
-// 	return nil
-// }
+		fr, err := local.NewLocalFileReader(path)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		pr, err := reader.NewParquetReader(fr, nil, 4)
+		if err != nil {
+			fmt.Printf("%v ::: %s\n", err, path)
+			continue
+		}
+
+		cleanParq := CleanParquet(pr)
+		cleanParquet = append(cleanParquet, cleanParq)
+		
+
+		pr.ReadStop()
+		fr.Close()
+	}
+
+	return cleanParquet, nil
+}
+

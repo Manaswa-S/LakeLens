@@ -5,10 +5,9 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
+	"main.go/cmd/db"
 	"main.go/internal/handlers"
 	"main.go/internal/services"
-	sqlc "main.go/internal/sqlc/generate"
 )
 
 
@@ -40,8 +39,8 @@ func initRoutes(router *gin.Engine) error {
 	internalGroup.Use()
 	
 	// TODO:
-	var queries *sqlc.Queries
-	var redis *redis.Client
+	queries := db.QueriesPool
+	redis := db.RedisClient
 
 	services := services.NewService(queries, redis)
 	handlers := handlers.NewHandler(services)
