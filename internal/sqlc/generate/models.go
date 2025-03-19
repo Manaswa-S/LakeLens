@@ -4,9 +4,39 @@
 
 package sqlc
 
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
 type Credential struct {
-	CredID int64
-	KeyID  string
-	Key    string
-	Region string
+	CredID    int64
+	LakeID    int64
+	CreatedAt pgtype.Timestamptz
+	KeyID     string
+	Key       string
+	Region    string
+}
+
+type Lake struct {
+	LakeID    int64
+	UserID    int64
+	Name      string
+	Region    string
+	CreatedAt pgtype.Timestamptz
+}
+
+type Location struct {
+	LocID      int64
+	LakeID     int64
+	CreatedAt  pgtype.Timestamptz
+	BucketName string
+}
+
+type User struct {
+	UserID    int64
+	Email     string
+	Password  string
+	Confirmed bool
+	CreatedAt pgtype.Timestamptz
+	UserUuid  pgtype.UUID
 }

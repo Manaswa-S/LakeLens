@@ -10,35 +10,93 @@ import (
 )
 
 const getCredentials = `-- name: GetCredentials :one
-SELECT cred_id, key_id, key, region 
+SELECT 
+    credentials.key_id,
+    credentials.key,
+    credentials.region
 FROM credentials 
-WHERE cred_id = $1
+WHERE lake_id = $1
 `
 
-func (q *Queries) GetCredentials(ctx context.Context, credID int64) (Credential, error) {
-	row := q.db.QueryRow(ctx, getCredentials, credID)
-	var i Credential
-	err := row.Scan(
-		&i.CredID,
-		&i.KeyID,
-		&i.Key,
-		&i.Region,
-	)
+type GetCredentialsRow struct {
+	KeyID  string
+	Key    string
+	Region string
+}
+
+func (q *Queries) GetCredentials(ctx context.Context, lakeID int64) (GetCredentialsRow, error) {
+	row := q.db.QueryRow(ctx, getCredentials, lakeID)
+	var i GetCredentialsRow
+	err := row.Scan(&i.KeyID, &i.Key, &i.Region)
 	return i, err
 }
 
+const getLakeIDfromLocID = `-- name: GetLakeIDfromLocID :one
+SELECT 
+    locations.lake_id
+FROM locations 
+WHERE loc_id = $1
+`
+
+func (q *Queries) GetLakeIDfromLocID(ctx context.Context, locID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, getLakeIDfromLocID, locID)
+	var lake_id int64
+	err := row.Scan(&lake_id)
+	return lake_id, err
+}
+
 const insertNewCredentails = `-- name: InsertNewCredentails :exec
-INSERT INTO credentials (key_id, key, region)
-VALUES ($1, $2, $3)
+INSERT INTO credentials (lake_id, key_id, key, region)
+VALUES ($1, $2, $3, $4)
 `
 
 type InsertNewCredentailsParams struct {
+	LakeID int64
 	KeyID  string
 	Key    string
 	Region string
 }
 
 func (q *Queries) InsertNewCredentails(ctx context.Context, arg InsertNewCredentailsParams) error {
-	_, err := q.db.Exec(ctx, insertNewCredentails, arg.KeyID, arg.Key, arg.Region)
+	_, err := q.db.Exec(ctx, insertNewCredentails,
+		arg.LakeID,
+		arg.KeyID,
+		arg.Key,
+		arg.Region,
+	)
+	return err
+}
+
+const insertNewLake = `-- name: InsertNewLake :one
+INSERT INTO lakes (user_id, name, region)
+VALUES ($1, $2, $3)
+RETURNING lake_id
+`
+
+type InsertNewLakeParams struct {
+	UserID int64
+	Name   string
+	Region string
+}
+
+func (q *Queries) InsertNewLake(ctx context.Context, arg InsertNewLakeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertNewLake, arg.UserID, arg.Name, arg.Region)
+	var lake_id int64
+	err := row.Scan(&lake_id)
+	return lake_id, err
+}
+
+const insertNewUser = `-- name: InsertNewUser :exec
+INSERT INTO users (email, password) 
+VALUES ($1, $2)
+`
+
+type InsertNewUserParams struct {
+	Email    string
+	Password string
+}
+
+func (q *Queries) InsertNewUser(ctx context.Context, arg InsertNewUserParams) error {
+	_, err := q.db.Exec(ctx, insertNewUser, arg.Email, arg.Password)
 	return err
 }

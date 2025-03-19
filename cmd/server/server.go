@@ -41,8 +41,9 @@ func initRoutes(router *gin.Engine) error {
 	// TODO:
 	queries := db.QueriesPool
 	redis := db.RedisClient
+	pool := db.Pool
 
-	services := services.NewService(queries, redis)
+	services := services.NewService(queries, redis, pool)
 	handlers := handlers.NewHandler(services)
 	handlers.RegisterRoutes(internalGroup)
 

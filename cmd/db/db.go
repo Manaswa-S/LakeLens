@@ -14,7 +14,7 @@ import (
 var	Pool *pgxpool.Pool
 var	QueriesPool *sqlc.Queries
 var	RedisClient *redis.Client
-
+var err error
 
 func InitDB() (error) {
 	fmt.Println("Connecting to Databases and Cache...")
@@ -23,13 +23,18 @@ func InitDB() (error) {
 	
 	// initialize database
 	dbConn := os.Getenv("DBLoginCredentials")
-	pool, err := pgxpool.New(ctx, dbConn)
+	Pool, err = pgxpool.New(ctx, dbConn)
 	if err != nil {
 		return fmt.Errorf("error creating database pool: %s", err)
 	}
 
 	// inittialize queries pool
-	QueriesPool = sqlc.New(pool)
+	QueriesPool = sqlc.New(Pool)
+
+
+
+	// sqlc.New(pool).WithTx()
+
 	
 	// // Connect to redis client
 	// RedisClient = redis.NewClient(&redis.Options{
@@ -44,7 +49,7 @@ func InitDB() (error) {
 	// }
 	// fmt.Println("Redis connection is alive!")
 
-	conn, err := pool.Acquire(context.Background())
+	conn, err := Pool.Acquire(context.Background())
 	if err != nil {
 		return fmt.Errorf("pgx Pool connection failed: %v", err)
 	}

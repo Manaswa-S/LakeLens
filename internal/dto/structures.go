@@ -1,41 +1,69 @@
 package dto
 
 import (
-	"github.com/xitongsys/parquet-go/parquet"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Internal
+
+type ClientSave struct {
+	LastUsed time.Time
+	S3Client *s3.Client
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// User Requests
+type NewUser struct {
+	Email string
+	Password string
+}
+
 type NewLake struct {
+	Name string
+
 	AccessID string
 	AccessKey string
 	LakeRegion string
 }
 
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// User Responses
+type BucketDataResponse struct {
+	Data *BucketData
+	Metadata *CompleteResponse
+}
+
 type CompleteResponse struct {
 	Parquet []*ParquetClean
 	Iceberg []*IcebergClean
+
+	Unknown any
 }
 
-type ParquetClean struct {
-	Schema []*parquet.SchemaElement
-}
-
-type IcebergClean struct {
-}
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// Lake Specific
-
-type BucketList map[*BucketData]*AllFilesMp
-
-type AllFilesMp map[string]interface{}
 
 type BucketData struct {
 	Name string
 	StorageType string
-	LeafFilePaths []string
-	Parquet bool // true if the bucket is a parquet bucket
-	Iceberg bool // true if the bucket is an iceberg table bucket
+
+	Parquet IsParquet 
+	Iceberg IsIceberg 
 
 	Unknown bool // true if unindentified type
 }
+
+
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// Internal Operations
+
+type BucketDataList map[*BucketData]*AllFilesMp
+
+type AllFilesMp map[string]interface{}
+
+
+

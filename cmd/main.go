@@ -14,6 +14,8 @@ import (
 
 func main() {
 
+	fmt.Println("Starting Server...")
+
 	flowChan := make(chan os.Signal, 1)
 	signal.Notify(flowChan, syscall.SIGINT, syscall.SIGTERM)
 	err := godotenv.Load()
