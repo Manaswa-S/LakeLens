@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	"main.go/internal/dto/formats"
+	formats "main.go/internal/dto/formats/iceberg"
 )
 
 // ReadIcebergJSON reads and Unmarshals given raw iceberg metadata files to IcebergData.
 // Files should strictly follow the format given under ./texts/examples .
-func ReadIcebergJSON(filePaths []string) ([]*formats.IcebergData, []error) {
+func ReadIcebergJSON(filePaths []string) ([]*formats.IcebergMetadataData, []error) {
 
-	icebergs := make([]*formats.IcebergData, 0)
+	icebergs := make([]*formats.IcebergMetadataData, 0)
 	errs := make([]error, 0)
 
 	for _, path := range filePaths {
@@ -28,7 +28,7 @@ func ReadIcebergJSON(filePaths []string) ([]*formats.IcebergData, []error) {
 			continue
 		}
 
-		ice := new(formats.IcebergData)
+		ice := new(formats.IcebergMetadataData)
 		err = json.Unmarshal(data, ice)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to unmarshal iceberg json file : %v", err))
@@ -39,4 +39,11 @@ func ReadIcebergJSON(filePaths []string) ([]*formats.IcebergData, []error) {
 	}
 
 	return icebergs, errs
+}
+
+
+func ReadIcebergAvro(filePaths []string) (error) {
+
+
+	return nil
 }

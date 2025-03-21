@@ -1,6 +1,6 @@
 package formats
 
-type IcebergData struct {
+type IcebergMetadataData struct {
 	FormatVersion int64 `json:"format-version"`
 	TableUUID string `json:"table-uuid"`
 	Location string `json:"location"`
@@ -21,6 +21,7 @@ type IcebergData struct {
 	Statistics []IcebergStatistics `json:"statistics"`
 	SnapshotLog []IcebergSnapshotLog `json:"snapshot-log"`
 	MetadataLog []IcebergMetadataLog `json:"metadata-log"`
+	PartitionStatistics []IcebergPartitionStatistics `json:"partition-statistics"`
 }
 
 type IcebergSchema struct {
@@ -92,8 +93,23 @@ type IcebergSnapshotSummary struct {
 }
 
 type IcebergStatistics struct {
-
+	SnapshotID string `json:"snapshot-id"`
+	StatisticsPath string `json:"statistics-path"`
+	FileSizeInBytes int64 `json:"file-size-in-bytes"`
+	FileFooterSizeInBytes int64 `json:"file-footer-size-in-bytes"`
+	BlobMetadata []IcebergStatisticsBlobMetadata `json:"blob-metadata"`
 }
+type IcebergStatisticsBlobMetadata struct {
+	Type string `json:"type"`
+	SnapshotID int64 `json:"snapshot-id"`
+	SequenceNumber int64 `json:"sequence-number"`
+	Fields []int64 `json:"fields"`
+	Properties IcebergStatisticsBlobMetadataProperties `json:"properties"`
+}
+type IcebergStatisticsBlobMetadataProperties struct {
+	StatisticType string `json:"statistic-type"`
+}
+
 
 type IcebergSnapshotLog struct {
 	TimestampMS int64 `json:"timestampms"`
@@ -105,3 +121,8 @@ type IcebergMetadataLog struct {
 	MetadataFile string `json:"metadata-file"`
 }
 
+type IcebergPartitionStatistics struct {
+	SnapshotID int64 `json:"snapshot-id"`
+	StatisticsPath string `json:"statistics-path"`
+	FileSizeInBytes int64 `json:"file-size-in-bytes"`
+}

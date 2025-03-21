@@ -280,7 +280,7 @@ func (s *Services) RegisterNewLake(ctx *gin.Context, userID int64, data *dto.New
 
 
 
-func (s *Services) GetLakeMetaData(ctx *gin.Context, userID int64, lakeid string) ([]*dto.BucketDataResponse, error) {
+func (s *Services) GetLakeData(ctx *gin.Context, userID int64, lakeid string) ([]*dto.LocationResp, error) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
@@ -299,7 +299,7 @@ func (s *Services) GetLakeMetaData(ctx *gin.Context, userID int64, lakeid string
 		return nil, err
 	}
 
-	response := make([]*dto.BucketDataResponse, 0)
+	response := make([]*dto.LocationResp, 0)
 
 	for _, bucket := range buckets {
 		bucData, resp, err := s3utils.GetLocationMetadata(ctx, client, bucket)
@@ -308,7 +308,7 @@ func (s *Services) GetLakeMetaData(ctx *gin.Context, userID int64, lakeid string
 			continue
 		}
 
-		response = append(response, &dto.BucketDataResponse{
+		response = append(response, &dto.LocationResp{
 			Data: bucData,
 			Metadata: resp,
 		})
@@ -317,28 +317,44 @@ func (s *Services) GetLakeMetaData(ctx *gin.Context, userID int64, lakeid string
 	return response, nil
 }
 
-func (s *Services) GetLocMetaData(ctx *gin.Context, userID int64, locid string) (*dto.CompleteResponse,error) {
+func (s *Services) GetLocData(ctx *gin.Context, userID int64, lakeid, locid string) (*dto.LocationResp, error) {
 
-	// locID, err := strconv.ParseInt(locid, 10, 64)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
+	if err != nil {
+		return nil, err
+	}
 
-	// lakeID, err := s.Queries.GetLakeIDfromLocID(ctx, locID)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	locID, err := strconv.ParseInt(locid, 10, 64)
+	if err != nil {
+		return nil, err
+	}
 
-	// client, err := s.getS3Client(ctx, lakeID)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	locData, err := s.Queries.GetLocationData(ctx, locID)
+	if err != nil {
+		return nil, err
+	}
 
-	// // response, err := s3utils.
-	// // if err != nil {
-	// // 	return nil, err
-	// // }
+	if lakeID != locData.LakeID {
+		return nil, fmt.Errorf("given lake id and required lake id is not the same")
+	}
 
-	// return response, nil
-	return nil, nil
+	client, err := s.getS3Client(ctx, locData.LakeID)
+	if err != nil {
+		return nil, err
+	}
+
+	bucket, err := s3utils.GetBucket(ctx, client, locData.BucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	bucData, response, err := s3utils.GetLocationMetadata(ctx, client, *bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.LocationResp{
+		Data: bucData,
+		Metadata: response,
+	}, nil
 }

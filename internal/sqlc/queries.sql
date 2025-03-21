@@ -14,9 +14,11 @@ RETURNING lake_id;
 
 
 
--- name: GetLakeIDfromLocID :one
+-- name: GetLocationData :one
 SELECT 
-    locations.lake_id
+    locations.loc_id,
+    locations.lake_id,
+    locations.bucket_name
 FROM locations 
 WHERE loc_id = $1;
 

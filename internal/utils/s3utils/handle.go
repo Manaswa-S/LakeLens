@@ -19,14 +19,13 @@ func HandleIceberg(ctx *gin.Context, client *s3.Client, bucData *dto.BucketData)
 		return nil, errs[0]
 	}
 
-
-	icebergs, errs := iceutils.ReadIcebergJSON(filePaths)
+	metadata, errs := iceutils.ReadIcebergJSON(filePaths)
 	if len(errs) != 0 {
 		fmt.Println(errs)
 		return nil, errs[0]
 	}
 
-	cleanIcebergs, err := iceutils.CleanIceberg(icebergs)
+	cleanIcebergs, err := iceutils.CleanIceberg(metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -40,15 +39,15 @@ func HandleParquet(ctx *gin.Context, client *s3.Client, bucData *dto.BucketData)
 
 	var cleanParquet []*dto.ParquetClean
 
-	filePaths, err := DownloadParquetS3(ctx, client, bucData.Name, bucData.Parquet.AllFilePaths)
+	filePaths, err := DownloadParquetS3(ctx, client, *bucData.Name, bucData.Parquet.AllFilePaths)
 	if err != nil {
 		return nil, err
 	}
 
-	cleanParquet, err = parqutils.ReadParquet(filePaths)
+	cleanParquet, err = parqutils.ReadParquet(filePaths, bucData.Parquet.AllFilePaths)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return cleanParquet, nil
 }

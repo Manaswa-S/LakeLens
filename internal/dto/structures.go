@@ -32,22 +32,18 @@ type NewLake struct {
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // User Responses
-type BucketDataResponse struct {
+type LocationResp struct {
 	Data *BucketData
-	Metadata *CompleteResponse
+	Metadata *BucketMetadata
 }
-
-type CompleteResponse struct {
-	Parquet []*ParquetClean
-	Iceberg []*IcebergClean
-
-	Unknown any
-}
-
 
 type BucketData struct {
-	Name string
+	Name *string
 	StorageType string
+	Region *string
+	CreationDate *time.Time
+	FileTree *FileTreeMap
+	TableType string
 
 	Parquet IsParquet 
 	Iceberg IsIceberg 
@@ -55,15 +51,25 @@ type BucketData struct {
 	Unknown bool // true if unindentified type
 }
 
+type BucketMetadata struct {
+	Parquet []*ParquetClean
+	Iceberg []*IcebergClean
+
+	Unknown any
+}
+
+
+
+
 
 
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Internal Operations
 
-type BucketDataList map[*BucketData]*AllFilesMp
+type BucketDataList map[*BucketData]*FileTreeMap
 
-type AllFilesMp map[string]interface{}
+type FileTreeMap map[string]interface{}
 
 
 

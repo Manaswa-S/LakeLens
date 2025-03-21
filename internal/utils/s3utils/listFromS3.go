@@ -22,13 +22,46 @@ func ListBuckets(ctx *gin.Context, client *s3.Client) ([]types.Bucket, error) {
 	return response.Buckets, nil
 }
 
-func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucket) (*dto.BucketData, *dto.CompleteResponse, error) {
+func GetBucket(ctx *gin.Context, client *s3.Client, bucketName string) (*types.Bucket, error) {
 
-	newBucket := dto.BucketData{
-		Name: aws.ToString(bucket.Name),
-		StorageType: consts.AWSS3,
+	headBuc, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: &bucketName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bucket metadata: %v", err)
 	}
-	fileTree := dto.AllFilesMp{}
+
+	bucket := types.Bucket{
+		Name: &bucketName,
+		CreationDate: nil,
+		BucketRegion: headBuc.BucketRegion,
+	}
+
+	return &bucket, nil
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucket) (*dto.BucketData, *dto.BucketMetadata, error) {
+
+	fileTree := make(dto.FileTreeMap)
+	newBucket := dto.BucketData{
+		Name: bucket.Name,
+		StorageType: consts.AWSS3,
+		Region: bucket.BucketRegion,
+		CreationDate: bucket.CreationDate,
+		FileTree: &fileTree,
+	}
 
 	response, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(*bucket.Name),
@@ -37,13 +70,13 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucke
 		return nil, nil, err
 	}
 
-	for _, obj := range response.Contents {
-		InsertIntoTree(fileTree, *obj.Key)
-	}	
+	InsertIntoTree(fileTree, &response.Contents)
 
-	fileTypeReturn := DetermineType(fileTree)
+	newBucket.TableType = DetermineType(fileTree)
 
-	switch fileTypeReturn {
+	respMetadata := new(dto.BucketMetadata)
+
+	switch newBucket.TableType {
 	case consts.ParquetFile:
 		newBucket.Parquet.Present = true
 
@@ -53,10 +86,8 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucke
 		if err != nil {
 			return nil, nil, err
 		}
-		
-		return &newBucket, &dto.CompleteResponse{
-			Parquet: parClean,
-		}, nil
+
+		respMetadata.Parquet = parClean
 	case consts.IcebergFile:
 		newBucket.Iceberg.Present = true
 
@@ -67,14 +98,12 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucke
 			fmt.Println(err)
 		}
 
-		return &newBucket, &dto.CompleteResponse{
-			Iceberg: cleanIcebergs,
-		}, nil
+		respMetadata.Iceberg = cleanIcebergs
 	default:
 		newBucket.Unknown = true
-
-		return &newBucket, &dto.CompleteResponse{
-			Unknown: nil,
-		}, nil
+		respMetadata.Unknown = nil
 	}
+
+	return &newBucket, respMetadata, nil
 }
+

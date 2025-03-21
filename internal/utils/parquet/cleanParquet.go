@@ -12,7 +12,12 @@ func CleanParquet(parquet *reader.ParquetReader) (*dto.ParquetClean, error) {
 
 	cleanParq := dto.ParquetClean{
 		Schema: parquet.Footer.Schema,
-	}
+		CreatedBy: parquet.Footer.CreatedBy,
+		Version: parquet.Footer.Version,
+		NumRows: parquet.Footer.NumRows,
+		
+		EncryptionAlgo: parquet.Footer.EncryptionAlgorithm,
+	}	
 
 	return &cleanParq, nil
 }

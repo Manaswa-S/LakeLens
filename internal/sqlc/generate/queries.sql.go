@@ -31,18 +31,26 @@ func (q *Queries) GetCredentials(ctx context.Context, lakeID int64) (GetCredenti
 	return i, err
 }
 
-const getLakeIDfromLocID = `-- name: GetLakeIDfromLocID :one
+const getLocationData = `-- name: GetLocationData :one
 SELECT 
-    locations.lake_id
+    locations.loc_id,
+    locations.lake_id,
+    locations.bucket_name
 FROM locations 
 WHERE loc_id = $1
 `
 
-func (q *Queries) GetLakeIDfromLocID(ctx context.Context, locID int64) (int64, error) {
-	row := q.db.QueryRow(ctx, getLakeIDfromLocID, locID)
-	var lake_id int64
-	err := row.Scan(&lake_id)
-	return lake_id, err
+type GetLocationDataRow struct {
+	LocID      int64
+	LakeID     int64
+	BucketName string
+}
+
+func (q *Queries) GetLocationData(ctx context.Context, locID int64) (GetLocationDataRow, error) {
+	row := q.db.QueryRow(ctx, getLocationData, locID)
+	var i GetLocationDataRow
+	err := row.Scan(&i.LocID, &i.LakeID, &i.BucketName)
+	return i, err
 }
 
 const insertNewCredentails = `-- name: InsertNewCredentails :exec

@@ -98,7 +98,7 @@ func (h *Handlers) GetLakeMetaData(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.Services.GetLakeMetaData(ctx, 1, lakeid)
+	response, err := h.Services.GetLakeData(ctx, 1, lakeid)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -109,12 +109,17 @@ func (h *Handlers) GetLakeMetaData(ctx *gin.Context) {
 
 func (h *Handlers) GetLocMetaData(ctx *gin.Context) {
 
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		return
+	}
+
 	locid := ctx.Param("locid")
 	if locid == "" {
 		return
 	}
 
-	response, err := h.Services.GetLocMetaData(ctx, 1, locid)
+	response, err := h.Services.GetLocData(ctx, 1, lakeid, locid)
 	if err != nil {
 		fmt.Println(err)
 		return

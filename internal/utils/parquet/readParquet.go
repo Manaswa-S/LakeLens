@@ -8,11 +8,11 @@ import (
 
 // ReadParquet reads parquet files.
 // It directly returns the cleansed version because of how the readers work.
-func ReadParquet(filePaths []string) ([]*dto.ParquetClean, error) {
+func ReadParquet(filePaths []string, fileURIs []string) ([]*dto.ParquetClean, error) {
 
 	cleanParquets := make([]*dto.ParquetClean, 0)
 
-	for _, path := range filePaths {
+	for i, path := range filePaths {
 
 		fileReader, err := local.NewLocalFileReader(path)
 		if err != nil {
@@ -28,6 +28,9 @@ func ReadParquet(filePaths []string) ([]*dto.ParquetClean, error) {
 		if err != nil {
 			continue
 		}
+
+		cleanParq.URI = fileURIs[i]
+
 		cleanParquets = append(cleanParquets, cleanParq)
 
 		parqReader.ReadStop()

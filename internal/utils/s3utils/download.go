@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -31,21 +32,22 @@ func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucName string, leaf
 			Range: &rangeHeader,
 		})
 		if err != nil {
+			dwnldPaths = append(dwnldPaths, "")
 			continue
 		}
 		defer obj.Body.Close()
 
 		filePath := fmt.Sprintf("%d", i)
 
-		fmt.Printf("%s : %d\n", path, i)
-
 		outfile, err := os.Create(filePath)
 		if err != nil {
+			dwnldPaths = append(dwnldPaths, "")
 			continue
 		}
 
 		_, err = outfile.ReadFrom(obj.Body)
 		if err != nil {
+			dwnldPaths = append(dwnldPaths, "")
 			continue
 		}			
 
@@ -62,23 +64,34 @@ func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucName string, leaf
 func DownloadIcebergS3(ctx *gin.Context, client *s3.Client, bucData *dto.BucketData) (filePaths []string, errs []error) {
 
 	basePath := configs.IcebergDownloadS3Path
+	
+	jsonPaths := bucData.Iceberg.JSONFilePaths
+	lenjsonPaths := len(jsonPaths)
 
-	for _, path := range bucData.Iceberg.JSONFilePaths {
+	if lenjsonPaths == 0 {
+		errs = append(errs, fmt.Errorf("no metadata files provided"))
+		return
+	}
+
+	sort.Strings(jsonPaths)
+	path := jsonPaths[lenjsonPaths - 1]
+
+	// for _, path := range bucData.Iceberg.JSONFilePaths {
 		obj, err := client.GetObject(ctx, &s3.GetObjectInput{
-			Bucket: &bucData.Name,
+			Bucket: bucData.Name,
 			Key: &path,
 		})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to get object from s3 : %v", err))
-			continue
+			return
 		}
 		defer obj.Body.Close()
 
-		dirPath := filepath.Join(basePath, bucData.Name)
+		dirPath := filepath.Join(basePath, *bucData.Name)
 		err = os.MkdirAll(dirPath, 0755)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to make directory : %v", err))
-			continue
+			return
 		}
 
 		pathSplits := strings.Split(path, "/")
@@ -87,17 +100,17 @@ func DownloadIcebergS3(ctx *gin.Context, client *s3.Client, bucData *dto.BucketD
 		outFile, err := os.Create(filePath)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to create file : %v", err))
-			continue
+			return
 		}
 
 		_, err = io.Copy(outFile, obj.Body)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to copy object : %v", err))
-			continue
+			return
 		}
 
 		filePaths = append(filePaths, filePath)
-	}
+	
 
 	return
 }
