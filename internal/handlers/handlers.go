@@ -23,9 +23,9 @@ func NewHandler(services *services.Services) *Handlers {
 func (h *Handlers) RegisterRoutes(routegrp *gin.RouterGroup) {
 
 	routegrp.POST("/newuser", h.NewUser)
-
-	routegrp.POST("/newlake", h.RegisterNewLake)
 	
+	routegrp.POST("/newlake", h.RegisterNewLake)
+
 	routegrp.GET("/getdata/:lakeid", h.GetLakeMetaData)
 	routegrp.GET("/getdata/:lakeid/:locid", h.GetLocMetaData)
 }
@@ -98,9 +98,9 @@ func (h *Handlers) GetLakeMetaData(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.Services.GetLakeData(ctx, 1, lakeid)
-	if err != nil {
-		fmt.Println(err)
+	response, errfs := h.Services.GetLakeData(ctx, 1, lakeid)
+	if len(errfs) != 0 {
+		fmt.Println(errfs)
 		return
 	}
 
@@ -119,9 +119,13 @@ func (h *Handlers) GetLocMetaData(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.Services.GetLocData(ctx, 1, lakeid, locid)
-	if err != nil {
-		fmt.Println(err)
+	response, errf := h.Services.GetLocData(ctx, 1, lakeid, locid)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+		}
 		return
 	}
 

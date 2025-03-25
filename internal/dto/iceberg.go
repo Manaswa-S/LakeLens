@@ -36,6 +36,8 @@ type IcebergClean struct {
 
 type IsIceberg struct {
 	Present bool
+	URI string
 	JSONFilePaths []string
 	AvroFilePaths []string
+	Metadata *IcebergClean
 }

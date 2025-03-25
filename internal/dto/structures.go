@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"main.go/internal/consts/errs"
 )
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -32,44 +33,31 @@ type NewLake struct {
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // User Responses
-type LocationResp struct {
-	Data *BucketData
-	Metadata *BucketMetadata
-}
 
 type BucketData struct {
 	Name *string
 	StorageType string
 	Region *string
 	CreationDate *time.Time
-	FileTree *FileTreeMap
 	TableType string
-
-	Parquet IsParquet 
-	Iceberg IsIceberg 
-
-	Unknown bool // true if unindentified type
 }
 
-type BucketMetadata struct {
-	Parquet []*ParquetClean
-	Iceberg []*IcebergClean
-
-	Unknown any
+type NewBucket struct {
+	Data BucketData
+	Parquet IsParquet
+	Iceberg IsIceberg
+	Delta IsDelta
+	Hudi IsHudi
+	Errors []*errs.Errorf
 }
-
-
-
-
-
 
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Internal Operations
 
-type BucketDataList map[*BucketData]*FileTreeMap
-
-type FileTreeMap map[string]interface{}
-
-
-
+type Latency struct {
+	Start int64
+	ListBuckets int64
+	DetermineTableType int64
+	Handle int64
+}

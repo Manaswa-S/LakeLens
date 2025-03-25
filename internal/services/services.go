@@ -124,7 +124,7 @@ func (s *Services) newS3Client(ctx *gin.Context, keyId, key, region, sessionStr 
 // Needs email and password, uses dto.NewUser.
 // Email and Password conditions can be found in respective Validation functions.
 func (s *Services) NewUser(ctx *gin.Context, data *dto.NewUser) *errs.Errorf {
-
+	// TODO: need to confirm email, send email
 	prblm, emailOk := utils.ValidateEmail(data.Email)
 	if !emailOk {
 		return &errs.Errorf{
@@ -280,81 +280,92 @@ func (s *Services) RegisterNewLake(ctx *gin.Context, userID int64, data *dto.New
 
 
 
-func (s *Services) GetLakeData(ctx *gin.Context, userID int64, lakeid string) ([]*dto.LocationResp, error) {
+
+func (s *Services) GetLakeData(ctx *gin.Context, userID int64, lakeid string) ([]*dto.NewBucket, []*errs.Errorf) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	client, err := s.getS3Client(ctx, lakeID)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-	
+
 	buckets, err := s3utils.ListBuckets(ctx, client)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
-	response := make([]*dto.LocationResp, 0)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	response := make([]*dto.NewBucket, 0)
+	errorfs := make([]*errs.Errorf, 0)
 
 	for _, bucket := range buckets {
-		bucData, resp, err := s3utils.GetLocationMetadata(ctx, client, bucket)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
+		wg.Add(1)
 
-		response = append(response, &dto.LocationResp{
-			Data: bucData,
-			Metadata: resp,
-		})
+		go func(bucket types.Bucket)  {
+			defer wg.Done()
+			newBucket, errf := s3utils.GetLocationMetadata(ctx, client, &bucket)
+			if errf != nil {
+				if errf.ReturnRaw {
+					newBucket.Errors = append(newBucket.Errors, errf)
+				} else {
+					mu.Lock()
+					errorfs = append(errorfs, errf)
+					mu.Unlock()
+				}
+			}
+			mu.Lock()
+			response = append(response, newBucket)
+			mu.Unlock()
+		} (bucket)
 	}
 
-	return response, nil
+	wg.Wait()
+
+	return response, errorfs
 }
 
-func (s *Services) GetLocData(ctx *gin.Context, userID int64, lakeid, locid string) (*dto.LocationResp, error) {
+func (s *Services) GetLocData(ctx *gin.Context, userID int64, lakeid, locid string) (*dto.NewBucket, *errs.Errorf) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	locID, err := strconv.ParseInt(locid, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	locData, err := s.Queries.GetLocationData(ctx, locID)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	if lakeID != locData.LakeID {
-		return nil, fmt.Errorf("given lake id and required lake id is not the same")
+		return nil, nil
 	}
 
 	client, err := s.getS3Client(ctx, locData.LakeID)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
-	bucket, err := s3utils.GetBucket(ctx, client, locData.BucketName)
-	if err != nil {
-		return nil, err
+	bucket, errf := s3utils.GetBucket(ctx, client, locData.BucketName)
+	if errf != nil {
+		return nil, errf
 	}
 
-	bucData, response, err := s3utils.GetLocationMetadata(ctx, client, *bucket)
-	if err != nil {
-		return nil, err
+	newBucket, errf := s3utils.GetLocationMetadata(ctx, client, bucket)
+	if errf != nil {
+		return nil, errf
 	}
 
-	return &dto.LocationResp{
-		Data: bucData,
-		Metadata: response,
-	}, nil
+	return newBucket, nil
 }

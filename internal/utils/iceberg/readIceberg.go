@@ -2,43 +2,41 @@ package iceutils
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
+	"main.go/internal/consts/errs"
 	formats "main.go/internal/dto/formats/iceberg"
 )
 
-// ReadIcebergJSON reads and Unmarshals given raw iceberg metadata files to IcebergData.
+// ReadIcebergJSON reads and Unmarshals given raw iceberg metadata file.
 // Files should strictly follow the format given under ./texts/examples .
-func ReadIcebergJSON(filePaths []string) ([]*formats.IcebergMetadataData, []error) {
+func ReadIcebergJSON(filePath string) (*formats.IcebergMetadataData, *errs.Errorf) {
 
-	icebergs := make([]*formats.IcebergMetadataData, 0)
-	errs := make([]error, 0)
-
-	for _, path := range filePaths {
-
-		data, err := os.ReadFile(path)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to read iceberg json file : %v", err))
-			continue
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to read iceberg metadata file : " + err.Error(),
 		}
-
-		if len(data) == 0 {
-			errs = append(errs, fmt.Errorf("empty iceberg json file : %v", err))
-			continue
-		}
-
-		ice := new(formats.IcebergMetadataData)
-		err = json.Unmarshal(data, ice)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to unmarshal iceberg json file : %v", err))
-			continue
-		}
-
-		icebergs = append(icebergs, ice)
 	}
 
-	return icebergs, errs
+	if len(data) == 0 {
+		return nil, &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Empty iceberg metadata file : filepath = " + filePath,
+		}
+	}
+
+	iceberg := new(formats.IcebergMetadataData)
+	err = json.Unmarshal(data, iceberg)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type: errs.ErrInternalServer,
+			Message: "Failed to un marshal to json : " + err.Error(),
+		}
+	}
+
+	return iceberg, nil
 }
 
 

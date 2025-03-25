@@ -1,118 +1,191 @@
 package s3utils
 
 import (
-	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
 	configs "main.go/internal/config"
-	"main.go/internal/dto"
+	"main.go/internal/consts/errs"
 )
 
-
-func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucName string, leafFilePaths []string) ([]string, error) {
+// DownloadParquetS3 downloads all parquet files given in leafFilePaths concurrently. 
+func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucketName string, leafFilePaths []string) ([]string, error) {
 
 	dwnldPaths := make([]string, 0)
 
-	// header to get only last 8KB of parquet files
 	// TODO: replace this to be dynamic
 	rangeHeader := "bytes=-46384"
 
+	var wg sync.WaitGroup
+
 	for i, path := range leafFilePaths {
+		wg.Add(1)
+		go func(i int, path string) {
+			defer wg.Done()
+			obj, err := client.GetObject(ctx, &s3.GetObjectInput{
+				Bucket: &bucketName,
+				Key: &path,
+				Range: &rangeHeader,
+			})
+			if err != nil {
+				dwnldPaths = append(dwnldPaths, "")
+				return
+			}
+			defer obj.Body.Close()
 
-		obj, err := client.GetObject(context.TODO(), &s3.GetObjectInput{
-			Bucket: &bucName,
-			Key: &path,
-			Range: &rangeHeader,
-		})
-		if err != nil {
-			dwnldPaths = append(dwnldPaths, "")
-			continue
-		}
-		defer obj.Body.Close()
+			filePath := fmt.Sprintf("%d", i)
 
-		filePath := fmt.Sprintf("%d", i)
+			outfile, err := os.Create(filePath)
+			if err != nil {
+				dwnldPaths = append(dwnldPaths, "")
+				return
+			}
 
-		outfile, err := os.Create(filePath)
-		if err != nil {
-			dwnldPaths = append(dwnldPaths, "")
-			continue
-		}
+			_, err = outfile.ReadFrom(obj.Body)
+			if err != nil {
+				dwnldPaths = append(dwnldPaths, "")
+				return
+			}			
 
-		_, err = outfile.ReadFrom(obj.Body)
-		if err != nil {
-			dwnldPaths = append(dwnldPaths, "")
-			continue
-		}			
-
-		dwnldPaths = append(dwnldPaths, filePath)
+			dwnldPaths = append(dwnldPaths, filePath)
+		} (i, path)
 	}
-
+	wg.Wait()
 	return dwnldPaths, nil
 }
 
+// DownloadSingleParquetS3 downloads  a parquet file from given URI.
+//
+// It first fetches last 8 bytes to determine the footer length and 
+// then downloads the footer accordingly. 
+// It increases latency and API calls but zeros the chances of incomplete footer fetching.
+// This shouldn't be an issue as a limit is already in place to limit the number of downloads per request.
+func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, uri string) (string, *errs.Errorf) {
 
+	rangeHeader := "bytes=-8"
+
+	objFooter, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucketName,
+		Key: &uri,
+		Range: &rangeHeader,
+	})
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Failed to get parquet file :  " + err.Error(),
+		}
+	}
+
+	objBody := make([]byte, 8)
+	_, err = objFooter.Body.Read(objBody)
+	if err != nil {
+		if err.Error() == "EOF" {
+
+		} else {
+			fmt.Printf("%s : %v", "error : ", err)
+		}
+	}
+	footerLen := int64(binary.LittleEndian.Uint32(objBody[:4]))
+	objFooter.Body.Close()
+
+	rangeHeader = fmt.Sprintf("bytes=-%d", footerLen + 8) 
+	completeObj, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucketName,
+		Key: &uri,
+		Range: &rangeHeader,
+	})
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Failed to get parquet file :  " + err.Error(),
+		}
+	}
+	defer completeObj.Body.Close()
+
+	dirPath := filepath.Join(configs.ParquetDownloadS3Path, bucketName)
+	err = os.MkdirAll(dirPath, 0755)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to create parquet download directory : " + err.Error(),
+		}
+	}
+
+	pathSplits := strings.Split(uri, "/")
+	filePath := filepath.Join(dirPath, pathSplits[len(pathSplits)-1])
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to create parquet file : " + err.Error(),
+		}
+	}
+
+	_, err = io.Copy(outFile, completeObj.Body)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to copy/write to outFile : " + err.Error(),
+		}
+	}
+
+	return filePath, nil
+}
 
 // DownloadIcebergS3 downloads iceberg metadata files from S3
 // , stores them locally and returns their local filepaths.
-func DownloadIcebergS3(ctx *gin.Context, client *s3.Client, bucData *dto.BucketData) (filePaths []string, errs []error) {
+func DownloadIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
 
 	basePath := configs.IcebergDownloadS3Path
 	
-	jsonPaths := bucData.Iceberg.JSONFilePaths
-	lenjsonPaths := len(jsonPaths)
+	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucketName,
+		Key: &key,
+	})
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Failed to get object : " + err.Error(),
+		}
+	}
+	defer obj.Body.Close()
 
-	if lenjsonPaths == 0 {
-		errs = append(errs, fmt.Errorf("no metadata files provided"))
-		return
+	dirPath := filepath.Join(basePath, bucketName)
+	err = os.MkdirAll(dirPath, 0755)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to make directory : " + err.Error(),
+		}
 	}
 
-	sort.Strings(jsonPaths)
-	path := jsonPaths[lenjsonPaths - 1]
+	pathSplits := strings.Split(key, "/")
+	filePath := filepath.Join(dirPath, pathSplits[len(pathSplits)-1])
 
-	// for _, path := range bucData.Iceberg.JSONFilePaths {
-		obj, err := client.GetObject(ctx, &s3.GetObjectInput{
-			Bucket: bucData.Name,
-			Key: &path,
-		})
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get object from s3 : %v", err))
-			return
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to create file : " + err.Error(),
 		}
-		defer obj.Body.Close()
+	}
 
-		dirPath := filepath.Join(basePath, *bucData.Name)
-		err = os.MkdirAll(dirPath, 0755)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to make directory : %v", err))
-			return
+	_, err = io.Copy(outFile, obj.Body)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to copy/write to outFile : " + err.Error(),
 		}
+	}
 
-		pathSplits := strings.Split(path, "/")
-		filePath := filepath.Join(dirPath, pathSplits[len(pathSplits)-1])
-
-		outFile, err := os.Create(filePath)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to create file : %v", err))
-			return
-		}
-
-		_, err = io.Copy(outFile, obj.Body)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to copy object : %v", err))
-			return
-		}
-
-		filePaths = append(filePaths, filePath)
-	
-
-	return
+	return filePath, nil
 }
 
 

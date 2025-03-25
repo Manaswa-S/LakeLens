@@ -8,7 +8,7 @@ import (
 // CleanParquet extracts only the required data from entire structures of metadata.
 //
 // The things to extract is fixed for now.
-func CleanParquet(parquet *reader.ParquetReader) (*dto.ParquetClean, error) {
+func CleanParquet(parquet *reader.ParquetReader) (*dto.ParquetClean) {
 
 	cleanParq := dto.ParquetClean{
 		Schema: parquet.Footer.Schema,
@@ -19,6 +19,6 @@ func CleanParquet(parquet *reader.ParquetReader) (*dto.ParquetClean, error) {
 		EncryptionAlgo: parquet.Footer.EncryptionAlgorithm,
 	}	
 
-	return &cleanParq, nil
+	return &cleanParq
 }
 

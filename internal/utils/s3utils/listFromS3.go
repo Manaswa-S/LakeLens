@@ -1,17 +1,21 @@
 package s3utils
 
 import (
-	"fmt"
+	"errors"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
+	configs "main.go/internal/config"
 	"main.go/internal/consts"
+	"main.go/internal/consts/errs"
 	"main.go/internal/dto"
 )
 
-
+// ListBuckets lists all buckets for a given client.
 func ListBuckets(ctx *gin.Context, client *s3.Client) ([]types.Bucket, error) {
 
 	response, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
@@ -21,89 +25,220 @@ func ListBuckets(ctx *gin.Context, client *s3.Client) ([]types.Bucket, error) {
 
 	return response.Buckets, nil
 }
-
-func GetBucket(ctx *gin.Context, client *s3.Client, bucketName string) (*types.Bucket, error) {
+// GetBucket determines if bucket exists and if access is allowed, returns some metadata too.
+func GetBucket(ctx *gin.Context, client *s3.Client, bucketName string) (*types.Bucket, *errs.Errorf) {
 
 	headBuc, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: &bucketName,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get bucket metadata: %v", err)
+		var erraws smithy.APIError
+		if errors.As(err, &erraws) {
+			switch erraws.ErrorCode() {
+			case "NotFound":
+				return nil, &errs.Errorf{
+					Type: errs.ErrNotFound,
+					Message: "Bucket not found : " + bucketName,
+					ReturnRaw: true,
+				}
+			case "Forbidden":
+				return nil, &errs.Errorf{
+					Type: errs.ErrForbidden,
+					Message: "Bucket access is forbidden : " + bucketName,
+					ReturnRaw: true,
+				}
+			}
+		}
+		return nil, &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Failed to get bucket metadata (head) : " + err.Error(),
+		}
 	}
 
-	bucket := types.Bucket{
+	return &types.Bucket{
 		Name: &bucketName,
 		CreationDate: nil,
 		BucketRegion: headBuc.BucketRegion,
+	}, nil
+}
+// GetLocationMetadata handles the metadata extraction of the given bucket.
+func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Bucket) (*dto.NewBucket, *errs.Errorf) {
+
+	newBucket := new(dto.NewBucket)
+	newBucket.Data.Name = bucket.Name
+	newBucket.Data.StorageType = consts.AWSS3
+	newBucket.Data.Region = bucket.BucketRegion
+	newBucket.Data.CreationDate = bucket.CreationDate
+
+	// TODO: some bug, takes exact 5s to load sometimes !?
+	// errf := DetermineTableType(ctx, client, newBucket, "", configs.DetermineTableTypeMaxDepth)
+	// if errf != nil {
+	// 	return newBucket, errf
+	// }
+
+	errf, defaultTo := DetermineTableTypeBFS(ctx, client, newBucket)
+	if errf != nil {
+		if defaultTo {
+			newBucket.Errors = append(newBucket.Errors, errf)
+		} else {
+        	return newBucket, errf
+		}
+    }
+
+	switch {
+	case newBucket.Iceberg.Present: 
+		{
+			newBucket.Data.TableType = consts.IcebergTable
+			cleanIceberg, errf := HandleIceberg(ctx, client, newBucket)
+			if errf != nil {
+				return newBucket, errf
+			} 
+
+			// fmt.Println(cleanIceberg)
+
+			newBucket.Iceberg.Metadata = cleanIceberg
+		}
+	case newBucket.Delta.Present: 
+		{
+			newBucket.Data.TableType = consts.DeltaTable
+			// TODO: coming soon !
+		}
+	case newBucket.Hudi.Present: 
+		{
+			newBucket.Data.TableType = consts.HudiTable
+			// TODO: coming soon !
+		}
+	default: 
+		{
+			newBucket.Data.TableType = consts.ParquetFile
+			newBucket.Parquet.Present = true
+			cleanParquets, errf := HandleParquet(ctx, client, newBucket)
+			if errf != nil {
+				return newBucket, errf
+			} 
+			newBucket.Parquet.Metadata = cleanParquets
+		}
 	}
 
-	return &bucket, nil
+	return newBucket, nil
 }
 
 
+// DetermineTableType determines/detects the table type in a given bucket by recursively listing nested folders.
+// 
+// This is the DFS based approach.
+func DetermineTableType(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket, prefix string, depth int) *errs.Errorf {
 
-
-
-
-
-
-
-
-
-
-
-func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket types.Bucket) (*dto.BucketData, *dto.BucketMetadata, error) {
-
-	fileTree := make(dto.FileTreeMap)
-	newBucket := dto.BucketData{
-		Name: bucket.Name,
-		StorageType: consts.AWSS3,
-		Region: bucket.BucketRegion,
-		CreationDate: bucket.CreationDate,
-		FileTree: &fileTree,
+	if depth <= 0 {
+		return &errs.Errorf{
+			Type: errs.ErrNotFound,
+			Message: "Maximum allowed depth reached but no table type found.",
+			ReturnRaw: true,
+		}
 	}
 
-	response, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: aws.String(*bucket.Name),
+	rootFolders, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: newBucket.Data.Name,
+		Prefix: aws.String(prefix),
+		Delimiter: aws.String("/"),
 	})
 	if err != nil {
-		return nil, nil, err
+		return &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Unable to list objects (folders) : " + err.Error(),
+		}
+    }
+
+	for _, prefix := range rootFolders.CommonPrefixes {
+		pre := *prefix.Prefix
+
+		if strings.HasSuffix(pre, consts.IcebergMetaFolder) && 
+			strings.HasSuffix(pre, consts.IcebergDataFolder) {
+				newBucket.Iceberg.Present = true
+				newBucket.Iceberg.URI = pre
+		} else if strings.HasSuffix(pre, consts.DeltaLogFolder) {
+			newBucket.Delta.Present = true
+		} else if strings.HasSuffix(pre, consts.HudiMetaFolder) {
+			newBucket.Hudi.Present = true
+		}
 	}
 
-	InsertIntoTree(fileTree, &response.Contents)
-
-	newBucket.TableType = DetermineType(fileTree)
-
-	respMetadata := new(dto.BucketMetadata)
-
-	switch newBucket.TableType {
-	case consts.ParquetFile:
-		newBucket.Parquet.Present = true
-
-		newBucket.Parquet.AllFilePaths = GetAllFilePaths(fileTree, "")
-
-		parClean, err := HandleParquet(ctx, client, &newBucket)
-		if err != nil {
-			return nil, nil, err
+	if !(newBucket.Parquet.Present || newBucket.Delta.Present || newBucket.Iceberg.Present) {
+		for _, prefix := range rootFolders.CommonPrefixes {
+			pre := *prefix.Prefix
+			errf := DetermineTableType(ctx, client, newBucket, pre, depth - 1)
+			if errf != nil {
+				return errf				
+            }
 		}
-
-		respMetadata.Parquet = parClean
-	case consts.IcebergFile:
-		newBucket.Iceberg.Present = true
-
-		newBucket.Iceberg.JSONFilePaths, newBucket.Iceberg.AvroFilePaths = GetIcebergFilePaths(fileTree, "")
-
-		cleanIcebergs, err := HandleIceberg(ctx, client, &newBucket)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		respMetadata.Iceberg = cleanIcebergs
-	default:
-		newBucket.Unknown = true
-		respMetadata.Unknown = nil
 	}
 
-	return &newBucket, respMetadata, nil
+	return nil
 }
 
+// DetermineTableTypeBFS determines/detects the table type in a given bucket.
+//
+// This is the BFS based approach. This should perform better for most cases.
+func DetermineTableTypeBFS(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) (*errs.Errorf, bool) {
+
+	queue := []string{""}
+	maxDepth := configs.DetermineTableTypeMaxDepth
+	subQueue := []string{}
+
+	for maxDepth > 0 && len(queue) > 0 {
+		// fmt.Printf("%s : %v\n", *newBucket.Data.Name ,queue)
+		subQueue = subQueue[:0]
+
+		for _, prefix := range queue {
+
+			// t1 := time.Now()
+
+			rootFolders, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+				Bucket: newBucket.Data.Name,
+				Prefix: &prefix,
+				Delimiter: aws.String("/"),
+			})
+			if err != nil {
+				return &errs.Errorf{
+					Type: errs.ErrServiceUnavailable,
+					Message: "Unable to list objects (folders) : " + err.Error(),
+				}, false
+			}
+
+			// fmt.Printf("	%s : %d     %d\n", *newBucket.Data.Name, time.Since(t1).Milliseconds(), maxDepth)
+		
+			for _, prefix := range rootFolders.CommonPrefixes {
+				pre := *prefix.Prefix
+				slashPre := "/" + pre
+		
+				if strings.HasSuffix(slashPre, consts.IcebergMetaFolder) {
+					for _, prefix2 := range rootFolders.CommonPrefixes {
+						pre2 := "/" + *prefix2.Prefix
+						if strings.HasSuffix(pre2, consts.IcebergDataFolder) {
+							newBucket.Iceberg.Present = true
+							newBucket.Iceberg.URI = pre
+							return nil, false
+						}
+					}
+				} else if strings.HasSuffix(slashPre, consts.DeltaLogFolder) {
+					newBucket.Delta.Present = true
+					return nil, false
+				} else if strings.HasSuffix(slashPre, consts.HudiMetaFolder) {
+					newBucket.Hudi.Present = true
+					return nil, false
+				}
+
+				subQueue = append(subQueue, pre)
+			}
+		}
+
+		queue = subQueue
+		maxDepth--
+	}
+
+	return &errs.Errorf{
+		Type: errs.ErrNotFound,
+		Message: "Maximum allowed depth reached but no table type found. Defaulting to extract few .parquet files if found.",
+		ReturnRaw: true,
+	}, true
+}

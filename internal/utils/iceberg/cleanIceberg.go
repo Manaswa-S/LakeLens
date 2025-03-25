@@ -6,33 +6,26 @@ import (
 )
 
 
-func CleanIceberg(icebergs []*formats.IcebergMetadataData) ([]*dto.IcebergClean, error) {
+func CleanIceberg(iceberg *formats.IcebergMetadataData) (*dto.IcebergClean) {
 
-	cleanIcebergs := make([]*dto.IcebergClean, 0)
+	cleanIceberg := new(dto.IcebergClean)
 
-	for _, ice := range icebergs {
+	cleanIceberg.TableUUID = iceberg.TableUUID
+	cleanIceberg.Location = iceberg.Location
+	cleanIceberg.LastUpdatedMS = iceberg.LastUpdatedMS
 
-		cleanIce := dto.IcebergClean{
-			TableUUID: ice.TableUUID,
-			Location: ice.Location,
-			LastUpdatedMS: ice.LastUpdatedMS,
+	cleanIceberg.CurrentSchemaID = iceberg.CurrentSchemaID
+	cleanIceberg.Schemas = iceberg.Schemas
 
-			CurrentSchemaID: ice.CurrentSchemaID,
-			Schemas: ice.Schemas,
+	cleanIceberg.CurrentSnapshotID = iceberg.CurrentSnapshotID
+	cleanIceberg.Snapshots = iceberg.Snapshots
+	cleanIceberg.SnapshotLog = iceberg.SnapshotLog
 
-			CurrentSnapshotID: ice.CurrentSnapshotID,
-			Snapshots: ice.Snapshots,
-			SnapshotLog: ice.SnapshotLog,
+	cleanIceberg.MetadataLog = iceberg.MetadataLog
 
-			MetadataLog: ice.MetadataLog,
+	cleanIceberg.DefaultSpecID = iceberg.DefaultSpecID
+	cleanIceberg.PartitionSpecs = iceberg.PartitionSpecs
+	cleanIceberg.LastPartitonID = iceberg.LastPartitionID
 
-			DefaultSpecID: ice.DefaultSpecID,
-			PartitionSpecs: ice.PartitionSpecs,
-			LastPartitonID: ice.LastPartitionID,
-		}
-
-		cleanIcebergs = append(cleanIcebergs, &cleanIce)
-	}
-
-	return cleanIcebergs, nil
+	return cleanIceberg
 }

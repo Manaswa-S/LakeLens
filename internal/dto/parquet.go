@@ -16,4 +16,5 @@ type ParquetClean struct {
 type IsParquet struct {
 	Present bool
 	AllFilePaths []string
+	Metadata []*ParquetClean
 }

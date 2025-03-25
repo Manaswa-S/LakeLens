@@ -3,39 +3,34 @@ package parqutils
 import (
 	"github.com/xitongsys/parquet-go-source/local"
 	"github.com/xitongsys/parquet-go/reader"
+	"main.go/internal/consts/errs"
 	"main.go/internal/dto"
 )
 
 // ReadParquet reads parquet files.
 // It directly returns the cleansed version because of how the readers work.
-func ReadParquet(filePaths []string, fileURIs []string) ([]*dto.ParquetClean, error) {
+func ReadParquet(filePath string) (*dto.ParquetClean, *errs.Errorf) {
 
-	cleanParquets := make([]*dto.ParquetClean, 0)
-
-	for i, path := range filePaths {
-
-		fileReader, err := local.NewLocalFileReader(path)
-		if err != nil {
-			continue
-		} 
-
-		parqReader, err := reader.NewParquetReader(fileReader, nil, 4)
-		if err != nil {
-			continue
+	fileReader, err := local.NewLocalFileReader(filePath)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to open parquet file : " + err.Error(),
 		}
+	} 
 
-		cleanParq, err := CleanParquet(parqReader)
-		if err != nil {
-			continue
+	parqReader, err := reader.NewParquetReader(fileReader, nil, 4)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type: errs.ErrInternalServer,
+			Message: "Failed to read parquet file : " + err.Error(),
 		}
-
-		cleanParq.URI = fileURIs[i]
-
-		cleanParquets = append(cleanParquets, cleanParq)
-
-		parqReader.ReadStop()
-		fileReader.Close()
 	}
 
-	return cleanParquets, nil
+	cleanParquet := CleanParquet(parqReader)
+
+	parqReader.ReadStop()
+	fileReader.Close()
+
+	return cleanParquet, nil
 }
