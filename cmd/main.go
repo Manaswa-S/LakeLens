@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"lakelens/cmd/db"
+	"lakelens/cmd/server"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/joho/godotenv"
-	"main.go/cmd/db"
-	"main.go/cmd/server"
 )		
 
 

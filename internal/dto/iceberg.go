@@ -1,9 +1,10 @@
 package dto
 
-import formats "main.go/internal/dto/formats/iceberg"
+import formats "lakelens/internal/dto/formats/iceberg"
 
 
-type IcebergClean struct {
+
+type IcebergMetadata struct {
 	TableUUID string
 	Location string
 	LastUpdatedMS int64
@@ -22,22 +23,23 @@ type IcebergClean struct {
 	LastPartitonID int64
 }
 
-// type IcebergCleanSnapshot struct {
-// 	SnapshotID int64
-// 	TimestampMS int64
-// 	Operation string
+type IcebergSnapshot struct {
+	SnapshotRecords []formats.SnapshotRecord
+}
+
+type IcebergManifest struct {
+	ManifestEntries []formats.ManifestEntry
+}
 	
-// 	AddedFiles int64
-// 	AddedRecords int64
-// 	AddedFilesSize int64
-// 	TotalRecords int64
-// 	TotalFilesSize int64
-// }
+
 
 type IsIceberg struct {
 	Present bool
 	URI string
-	JSONFilePaths []string
-	AvroFilePaths []string
-	Metadata *IcebergClean
+	MetadataFPaths []string
+	ManifestFPaths []string
+	SnapshotFPaths []string
+	Metadata *IcebergMetadata
+	Snapshot *IcebergSnapshot
+	Manifest []*IcebergManifest
 }

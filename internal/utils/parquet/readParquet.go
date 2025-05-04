@@ -1,10 +1,11 @@
 package parqutils
 
 import (
+	"lakelens/internal/consts/errs"
+	"lakelens/internal/dto"
+
 	"github.com/xitongsys/parquet-go-source/local"
 	"github.com/xitongsys/parquet-go/reader"
-	"main.go/internal/consts/errs"
-	"main.go/internal/dto"
 )
 
 // ReadParquet reads parquet files.

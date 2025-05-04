@@ -1,8 +1,9 @@
 package parqutils
 
 import (
+	"lakelens/internal/dto"
+
 	"github.com/xitongsys/parquet-go/reader"
-	"main.go/internal/dto"
 )
 
 // CleanParquet extracts only the required data from entire structures of metadata.

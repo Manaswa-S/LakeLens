@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	configs "lakelens/internal/config"
+	"lakelens/internal/consts/errs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,17 +13,17 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
-	configs "main.go/internal/config"
-	"main.go/internal/consts/errs"
 )
 
-// DownloadParquetS3 downloads all parquet files given in leafFilePaths concurrently. 
+// DownloadParquetS3 downloads all parquet files given in leafFilePaths concurrently.
+//
+// By default fetches the last 48 KB.
 func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucketName string, leafFilePaths []string) ([]string, error) {
 
 	dwnldPaths := make([]string, 0)
 
 	// TODO: replace this to be dynamic
-	rangeHeader := "bytes=-46384"
+	rangeHeader := "bytes=-48000"
 
 	var wg sync.WaitGroup
 
@@ -87,7 +89,7 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	_, err = objFooter.Body.Read(objBody)
 	if err != nil {
 		if err.Error() == "EOF" {
-
+			// TODO:
 		} else {
 			fmt.Printf("%s : %v", "error : ", err)
 		}
@@ -141,7 +143,58 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 
 // DownloadIcebergS3 downloads iceberg metadata files from S3
 // , stores them locally and returns their local filepaths.
-func DownloadIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
+func DownIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
+
+	basePath := configs.IcebergDownloadS3Path
+	
+	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &bucketName,
+		Key: &key,
+	})
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrServiceUnavailable,
+			Message: "Failed to get object : " + err.Error(),
+		}
+	}
+	defer obj.Body.Close()
+
+	dirPath := filepath.Join(basePath, bucketName)
+	err = os.MkdirAll(dirPath, 0755)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to make directory : " + err.Error(),
+		}
+	}
+
+	pathSplits := strings.Split(key, "/")
+	filePath := filepath.Join(dirPath, pathSplits[len(pathSplits)-1])
+
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to create file : " + err.Error(),
+		}
+	}
+
+	_, err = io.Copy(outFile, obj.Body)
+	if err != nil {
+		return "", &errs.Errorf{
+			Type: errs.ErrStorageFailed,
+			Message: "Failed to copy/write to outFile : " + err.Error(),
+		}
+	}
+
+	return filePath, nil
+}
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+func DownAvroS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
 
 	basePath := configs.IcebergDownloadS3Path
 	

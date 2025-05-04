@@ -1,4 +1,4 @@
-module main.go
+module lakelens
 
 go 1.23.3
 
@@ -71,8 +71,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
-	github.com/aws/smithy-go v1.22.3 // indirect
+	github.com/aws/smithy-go v1.22.3
 	github.com/gin-gonic/gin v1.10.0
+	github.com/linkedin/goavro/v2 v2.13.1
 	github.com/redis/go-redis/v9 v9.7.1
 	github.com/xitongsys/parquet-go-source v0.0.0-20241021075129-b732d2ac9c9b
 )

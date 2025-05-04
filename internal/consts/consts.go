@@ -1,6 +1,7 @@
 package consts
 
 // General file/table type names.
+// Change with care as this is directly linked to external routes.
 const (
 	ParquetFile = "parquet"
 	IcebergTable = "iceberg"

@@ -10,55 +10,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Handlers struct {
-	Services *services.Services
+
+type ManagerHandler struct {
+	Manager *services.ManagerService
 }
 
-func NewHandler(services *services.Services) *Handlers {
-	return &Handlers{
-		Services: services,
+func NewManagerHandler(manager *services.ManagerService) *ManagerHandler {
+	return &ManagerHandler{
+		Manager: manager,
 	}
 }
 
-func (h *Handlers) RegisterRoutes(routegrp *gin.RouterGroup) {
-
-	routegrp.POST("/newuser", h.NewUser)
+func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 	
+	// posts a new lake form
+	// uses dto.NewLake
 	routegrp.POST("/newlake", h.RegisterNewLake)
 
 	routegrp.GET("/getdata/:lakeid", h.GetLakeMetaData)
+
 	routegrp.GET("/getdata/:lakeid/:locid", h.GetLocMetaData)
+
 }
 
 
-func (h *Handlers) NewUser(ctx *gin.Context) {
-	data := new(dto.NewUser)
-	err := ctx.Bind(data)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errs.Errorf{
-			Type: errs.ErrBadForm,
-			Message: "Missing or Invalid fields in new user form.",
-			ReturnRaw: true,
-		})
-		return
-	}
 
-	errf := h.Services.NewUser(ctx, data)
-	if errf != nil {
-		if errf.ReturnRaw {
-			ctx.JSON(http.StatusBadRequest, errf)
-		} else {
-			ctx.Set("error", errf.Message)
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "New user registered successfully.",
-	})
-}
-
-func (h *Handlers) RegisterNewLake(ctx *gin.Context) {
+func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
 
 	data := new(dto.NewLake)
 	err := ctx.Bind(data)
@@ -90,7 +67,7 @@ func (h *Handlers) RegisterNewLake(ctx *gin.Context) {
 } 
 
 
-func (h *Handlers) GetLakeMetaData(ctx *gin.Context) {
+func (h *ManagerHandler) GetLakeMetaData(ctx *gin.Context) {
 
 	lakeid := ctx.Param("lakeid")
 	if lakeid == "" {
@@ -106,7 +83,7 @@ func (h *Handlers) GetLakeMetaData(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-func (h *Handlers) GetLocMetaData(ctx *gin.Context) {
+func (h *ManagerHandler) GetLocMetaData(ctx *gin.Context) {
 
 	lakeid := ctx.Param("lakeid")
 	if lakeid == "" {
@@ -130,3 +107,4 @@ func (h *Handlers) GetLocMetaData(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, response)
 }
+

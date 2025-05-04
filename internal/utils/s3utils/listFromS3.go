@@ -2,6 +2,12 @@ package s3utils
 
 import (
 	"errors"
+	"fmt"
+	configs "lakelens/internal/config"
+	"lakelens/internal/consts"
+	"lakelens/internal/consts/errs"
+	"lakelens/internal/dto"
+	cacheutils "lakelens/internal/utils/cache"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -9,10 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
-	configs "main.go/internal/config"
-	"main.go/internal/consts"
-	"main.go/internal/consts/errs"
-	"main.go/internal/dto"
 )
 
 // ListBuckets lists all buckets for a given client.
@@ -44,7 +46,7 @@ func GetBucket(ctx *gin.Context, client *s3.Client, bucketName string) (*types.B
 			case "Forbidden":
 				return nil, &errs.Errorf{
 					Type: errs.ErrForbidden,
-					Message: "Bucket access is forbidden : " + bucketName,
+					Message: "Bucket access is forbidden : " + bucketName + " : " + err.Error(),
 					ReturnRaw: true,
 				}
 			}
@@ -70,11 +72,19 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Buck
 	newBucket.Data.Region = bucket.BucketRegion
 	newBucket.Data.CreationDate = bucket.CreationDate
 
-	// TODO: some bug, takes exact 5s to load sometimes !?
-	// errf := DetermineTableType(ctx, client, newBucket, "", configs.DetermineTableTypeMaxDepth)
-	// if errf != nil {
-	// 	return newBucket, errf
-	// }
+	// Trial: 
+
+	cacheData, exists := cacheutils.GetCacheS3Bucket(*bucket.Name)
+	if !exists {
+		// handle
+		fmt.Println("cache does not exists")
+	} else {
+		newBucket.Data.UpdatedAt = cacheData.UpdatedAt
+		newBucket.Data.KeyCount = cacheData.KeyCount
+	}
+
+	//
+
 
 	errf, defaultTo := DetermineTableTypeBFS(ctx, client, newBucket)
 	if errf != nil {
@@ -89,14 +99,21 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Buck
 	case newBucket.Iceberg.Present: 
 		{
 			newBucket.Data.TableType = consts.IcebergTable
-			cleanIceberg, errf := HandleIceberg(ctx, client, newBucket)
+			isIceberg, cacheValid, errf := HandleIceberg(ctx, client, newBucket)
+
+			// trial:
+
 			if errf != nil {
 				return newBucket, errf
 			} 
+			if cacheValid {
+				fmt.Printf("%s : returning cache directly\n", *newBucket.Data.Name)
+				return cacheData.Bucket, nil
+			}
 
-			// fmt.Println(cleanIceberg)
+			//
 
-			newBucket.Iceberg.Metadata = cleanIceberg
+			newBucket.Iceberg = *isIceberg
 		}
 	case newBucket.Delta.Present: 
 		{
@@ -112,17 +129,37 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Buck
 		{
 			newBucket.Data.TableType = consts.ParquetFile
 			newBucket.Parquet.Present = true
-			cleanParquets, errf := HandleParquet(ctx, client, newBucket)
+			cleanParquets, cacheValid, errf := HandleParquet(ctx, client, newBucket)
+
+			// trial:
+
 			if errf != nil {
 				return newBucket, errf
 			} 
+			if cacheValid {
+				fmt.Printf("%s : returning cache directly\n", *newBucket.Data.Name)
+				return cacheData.Bucket, nil
+			}
+
+			//
+
 			newBucket.Parquet.Metadata = cleanParquets
 		}
 	}
 
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	
+	// trial:
+	
+	err := HandleCache(newBucket)
+	if err != nil {
+		fmt.Println(err)
+    }
+
+	//
+
 	return newBucket, nil
 }
-
 
 // DetermineTableType determines/detects the table type in a given bucket by recursively listing nested folders.
 // 
@@ -206,7 +243,7 @@ func DetermineTableTypeBFS(ctx *gin.Context, client *s3.Client, newBucket *dto.N
 			}
 
 			// fmt.Printf("	%s : %d     %d\n", *newBucket.Data.Name, time.Since(t1).Milliseconds(), maxDepth)
-		
+
 			for _, prefix := range rootFolders.CommonPrefixes {
 				pre := *prefix.Prefix
 				slashPre := "/" + pre
@@ -241,4 +278,38 @@ func DetermineTableTypeBFS(ctx *gin.Context, client *s3.Client, newBucket *dto.N
 		Message: "Maximum allowed depth reached but no table type found. Defaulting to extract few .parquet files if found.",
 		ReturnRaw: true,
 	}, true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>..
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+func HandleCache(newBucket *dto.NewBucket) error {
+
+	cacheutils.SetCacheS3Bucket(newBucket)
+
+	return nil
 }

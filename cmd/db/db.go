@@ -3,11 +3,11 @@ package db
 import (
 	"context"
 	"fmt"
+	sqlc "lakelens/internal/sqlc/generate"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	sqlc "main.go/internal/sqlc/generate"
 )
 
 

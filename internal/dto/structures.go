@@ -1,16 +1,16 @@
 package dto
 
 import (
+	"lakelens/internal/consts/errs"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"main.go/internal/consts/errs"
 )
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Internal
 
-type ClientSave struct {
+type S3ClientSave struct {
 	LastUsed time.Time
 	S3Client *s3.Client
 }
@@ -18,46 +18,63 @@ type ClientSave struct {
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // User Requests
 type NewUser struct {
-	Email string
+	Email    string
 	Password string
 }
 
 type NewLake struct {
-	Name string
+	Name string // the lake project name, whatever the user wants.
 
-	AccessID string
-	AccessKey string
+	// only one is valid, others remain nil.
+	S3    *NewLakeS3
+	Azure *NewLakeAzure
+	GCP   *NewLakeGCP
+}
+
+type NewLakeS3 struct {
+	AccessID   string
+	AccessKey  string
 	LakeRegion string
 }
 
+type NewLakeAzure struct {
+	// TODO:
+}
+
+type NewLakeGCP struct {
+	// TODO:
+}
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // User Responses
 
 type BucketData struct {
-	Name *string
-	StorageType string
-	Region *string
+	Name         *string
+	StorageType  string
+	Region       *string
 	CreationDate *time.Time
-	TableType string
+	TableType    string
+	UpdatedAt    time.Time
+	//
+	KeyCount int64
+	//
 }
 
 type NewBucket struct {
-	Data BucketData
+	Data    BucketData
 	Parquet IsParquet
 	Iceberg IsIceberg
-	Delta IsDelta
-	Hudi IsHudi
-	Errors []*errs.Errorf
+	Delta   IsDelta
+	Hudi    IsHudi
+	Errors  []*errs.Errorf
 }
-
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Internal Operations
 
 type Latency struct {
-	Start int64
-	ListBuckets int64
+	Start              int64
+	ListBuckets        int64
 	DetermineTableType int64
-	Handle int64
+	Handle             int64
 }
