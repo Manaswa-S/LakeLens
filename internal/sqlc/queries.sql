@@ -8,10 +8,20 @@ VALUES ($1, $2);
 
 
 -- name: InsertNewLake :one
-INSERT INTO lakes (user_id, name, region)
-VALUES ($1, $2, $3)
+INSERT INTO lakes (user_id, name, region, ptype)
+VALUES ($1, $2, $3, $4)
 RETURNING lake_id;
 
+
+
+
+-- name: GetLakeData :one
+SELECT 
+    lakes.name,
+    lakes.region,
+    lakes.ptype
+FROM lakes 
+WHERE lakes.lake_id = $1;
 
 
 -- name: GetLocationData :one

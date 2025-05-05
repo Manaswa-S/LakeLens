@@ -23,6 +23,7 @@ type Lake struct {
 	Name      string
 	Region    string
 	CreatedAt pgtype.Timestamptz
+	Ptype     string
 }
 
 type Location struct {

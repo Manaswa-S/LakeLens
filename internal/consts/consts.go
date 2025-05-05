@@ -14,6 +14,8 @@ const (
 // General storage type names.
 const (
 	AWSS3 = "awsS3"
+	Azure = "azure"
+	MinIO = "minIO"
 )
 
 // File/Table type extension/folder names to detect them. Do Not Change.

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.lakes
     name text COLLATE pg_catalog."default" NOT NULL,
     region text COLLATE pg_catalog."default" NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ptype text COLLATE pg_catalog."default" NOT NULL DEFAULT ''::text,
     CONSTRAINT lakes_pkey PRIMARY KEY (lake_id),
     CONSTRAINT users_user_id_fkey FOREIGN KEY (user_id)
         REFERENCES public.users (user_id) MATCH SIMPLE

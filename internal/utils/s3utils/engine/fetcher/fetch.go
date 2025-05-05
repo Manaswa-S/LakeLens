@@ -1,4 +1,4 @@
-package s3utils
+package fetcher
 
 import (
 	"encoding/binary"

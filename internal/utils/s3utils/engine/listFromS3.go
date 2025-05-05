@@ -1,4 +1,4 @@
-package s3utils
+package s3engine
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 	"lakelens/internal/consts/errs"
 	"lakelens/internal/dto"
 	cacheutils "lakelens/internal/utils/cache"
+	"lakelens/internal/utils/s3utils/pipeline"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -99,7 +100,7 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Buck
 	case newBucket.Iceberg.Present: 
 		{
 			newBucket.Data.TableType = consts.IcebergTable
-			isIceberg, cacheValid, errf := HandleIceberg(ctx, client, newBucket)
+			isIceberg, cacheValid, errf := pipeline.HandleIceberg(ctx, client, newBucket)
 
 			// trial:
 
@@ -129,7 +130,7 @@ func GetLocationMetadata(ctx *gin.Context, client *s3.Client, bucket *types.Buck
 		{
 			newBucket.Data.TableType = consts.ParquetFile
 			newBucket.Parquet.Present = true
-			cleanParquets, cacheValid, errf := HandleParquet(ctx, client, newBucket)
+			cleanParquets, cacheValid, errf := pipeline.HandleParquet(ctx, client, newBucket)
 
 			// trial:
 

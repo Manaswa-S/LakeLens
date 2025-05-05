@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"lakelens/cmd/db"
 	"lakelens/internal/consts"
-	"lakelens/internal/handlers"
 	iceberghdlr "lakelens/internal/handlers/iceberg"
+	managerhdlr "lakelens/internal/handlers/manager"
 	publichdlr "lakelens/internal/handlers/public"
-	publicsrvc "lakelens/internal/services/public"
-	"lakelens/internal/services"
 	icebergserv "lakelens/internal/services/iceberg"
+	managersrvc "lakelens/internal/services/manager"
+	publicsrvc "lakelens/internal/services/public"
 	"lakelens/internal/stash"
 	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
-
-func InitHTTPServer() (error) {
+func InitHTTPServer() error {
 
 	router := gin.Default()
 	err := initRoutes(router)
@@ -25,15 +24,14 @@ func InitHTTPServer() (error) {
 		return err
 	}
 
-	go func ()  {
+	go func() {
 		err := router.Run(":" + os.Getenv("PORT"))
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-	} ()
+	}()
 
-	
 	return nil
 }
 
@@ -41,23 +39,17 @@ func initRoutes(router *gin.Engine) error {
 
 	publicGrp := router.Group("/public")
 
-	internalGroup := router.Group("/lens")
-	internalGroup.Use()
-	
+	lensGrp := router.Group("/lens")
+	// TODO: add middlewares
+	lensGrp.Use()
+
 	// TODO:
 	queries := db.QueriesPool
 	redis := db.RedisClient
 	pool := db.Pool
-	
 
 	// < Stash
 	stashService := stash.NewStashService(queries, redis, pool)
-	// >
-
-	// < Trial
-	service := services.NewService(queries, redis, pool)
-	handler := handlers.NewHandler(service)
-	handler.RegisterRoutes(internalGroup)
 	// >
 
 	// < Public
@@ -66,26 +58,19 @@ func initRoutes(router *gin.Engine) error {
 	publicHdlr.RegisterRoutes(publicGrp)
 	// >
 
-
 	// < Iceberg
 	icebergService := icebergserv.NewIcebergService(queries, redis, pool, stashService)
 	icebergHandler := iceberghdlr.NewIcebergHandler(icebergService)
-	icebergGrp := router.Group("/" + consts.IcebergTable)
+	icebergGrp := lensGrp.Group("/" + consts.IcebergTable)
 	icebergHandler.RegisterRoutes(icebergGrp)
 	// >
 
 	// < Manager
-	managerService := services.NewManagerService(queries, redis, pool, stashService, icebergService)
-	managerHandler := handlers.NewManagerHandler(managerService)
-	managerGrp := router.Group("/manager")
+	managerService := managersrvc.NewManagerService(queries, redis, pool, stashService, icebergService)
+	managerHandler := managerhdlr.NewManagerHandler(managerService)
+	managerGrp := lensGrp.Group("/manager")
 	managerHandler.RegisterRoutes(managerGrp)
 	// >
 
 	return nil
 }
-
-
-
-
-
-

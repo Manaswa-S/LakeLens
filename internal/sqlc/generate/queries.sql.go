@@ -31,6 +31,28 @@ func (q *Queries) GetCredentials(ctx context.Context, lakeID int64) (GetCredenti
 	return i, err
 }
 
+const getLakeData = `-- name: GetLakeData :one
+SELECT 
+    lakes.name,
+    lakes.region,
+    lakes.ptype
+FROM lakes 
+WHERE lakes.lake_id = $1
+`
+
+type GetLakeDataRow struct {
+	Name   string
+	Region string
+	Ptype  string
+}
+
+func (q *Queries) GetLakeData(ctx context.Context, lakeID int64) (GetLakeDataRow, error) {
+	row := q.db.QueryRow(ctx, getLakeData, lakeID)
+	var i GetLakeDataRow
+	err := row.Scan(&i.Name, &i.Region, &i.Ptype)
+	return i, err
+}
+
 const getLocationData = `-- name: GetLocationData :one
 SELECT 
     locations.loc_id,
@@ -76,8 +98,8 @@ func (q *Queries) InsertNewCredentails(ctx context.Context, arg InsertNewCredent
 }
 
 const insertNewLake = `-- name: InsertNewLake :one
-INSERT INTO lakes (user_id, name, region)
-VALUES ($1, $2, $3)
+INSERT INTO lakes (user_id, name, region, ptype)
+VALUES ($1, $2, $3, $4)
 RETURNING lake_id
 `
 
@@ -85,10 +107,16 @@ type InsertNewLakeParams struct {
 	UserID int64
 	Name   string
 	Region string
+	Ptype  string
 }
 
 func (q *Queries) InsertNewLake(ctx context.Context, arg InsertNewLakeParams) (int64, error) {
-	row := q.db.QueryRow(ctx, insertNewLake, arg.UserID, arg.Name, arg.Region)
+	row := q.db.QueryRow(ctx, insertNewLake,
+		arg.UserID,
+		arg.Name,
+		arg.Region,
+		arg.Ptype,
+	)
 	var lake_id int64
 	err := row.Scan(&lake_id)
 	return lake_id, err
