@@ -49,7 +49,7 @@ type NewLakeGCP struct {
 // User Responses
 
 type BucketData struct {
-	Name         *string
+	Name         string
 	StorageType  string
 	Region       *string
 	CreationDate *time.Time
@@ -58,6 +58,7 @@ type BucketData struct {
 	//
 	KeyCount int64
 	//
+	LocationID int64
 }
 
 type NewBucket struct {

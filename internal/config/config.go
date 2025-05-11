@@ -5,10 +5,12 @@ var (
 )
 
 const (
-	// TODO: to be changed to a better/secure/separate location from the actual code center
-	IcebergDownloadS3Path = "./lakeDownloads/s3"
+	BaseSavePath = "./lakeDownloads"
+)
 
-	ParquetDownloadS3Path = "./lakeDownloads/s3"
+const (
+	// TODO: to be changed to a better/secure/separate location from the actual code center
+	S3DownPath = BaseSavePath + "/s3"
 )
 
 const (

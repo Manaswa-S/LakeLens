@@ -3,6 +3,7 @@ package manager
 import (
 	"errors"
 	"fmt"
+	s3engine "lakelens/internal/adapters/s3/engine"
 	"lakelens/internal/consts"
 	"lakelens/internal/consts/errs"
 	"lakelens/internal/dto"
@@ -10,7 +11,6 @@ import (
 	sqlc "lakelens/internal/sqlc/generate"
 	"lakelens/internal/stash"
 	utils "lakelens/internal/utils/common"
-	"lakelens/internal/utils/s3utils/engine"
 	"strconv"
 	"sync"
 
@@ -43,6 +43,64 @@ func NewManagerService(queries *sqlc.Queries, redis *redis.Client, db *pgxpool.P
 		Iceberg: iceberg,
 	}
 }
+
+
+func (s *ManagerService) fetchCache(ctx *gin.Context, userID int64, locid string) (*stash.CacheMetadata, *errs.Errorf) {
+
+	locID, err := strconv.ParseInt(locid, 10, 64)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrInvalidInput,
+			Message: "Failed to parse location id to int64 : " + err.Error(),
+		}
+	}
+
+	locData, err := s.Queries.GetLocationData(ctx, locID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get location data : " + err.Error(),
+		}
+	}
+
+	if locData.UserID != userID {
+		return nil, &errs.Errorf{
+			Type:      errs.ErrUnauthorized,
+			Message:   "Requested resource does not belong to you.",
+			ReturnRaw: true,
+		}
+	}
+
+	lakeData, err := s.Queries.GetLakeData(ctx, locData.LakeID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get lake data : " + err.Error(),
+		}
+	}
+
+	cache := new(stash.CacheMetadata)
+	var exists bool
+
+	switch lakeData.Ptype {
+	case consts.AWSS3:
+		cache, exists = s.Stash.GetBucketS3(locData.BucketName)
+
+	default:
+		// ?
+	}
+
+	if !exists {
+		return nil, &errs.Errorf{
+			Type:      errs.ErrNotFound,
+			Message:   "Requested resource not found. Please rescan to fetch data.",
+			ReturnRaw: true,
+		}
+	}
+
+	return cache, nil
+}
+
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Registering a new lake
@@ -214,7 +272,7 @@ func (c *S3Client) ProcessLake(ctx *gin.Context) ([]*dto.NewBucket, []*errs.Erro
 
 		go func(bucket types.Bucket) {
 			defer wg.Done()
-			newBucket, errf := s3engine.GetLocationMetadata(ctx, c.client, &bucket)
+			newBucket, errf := s3engine.ScrapeLoc(ctx, c.client, &bucket)
 			if errf != nil {
 				if errf.ReturnRaw {
 					newBucket.Errors = append(newBucket.Errors, errf)
@@ -240,7 +298,7 @@ func (c *S3Client) ProcessLoc(ctx *gin.Context, bucName string) (*dto.NewBucket,
 		return nil, errf
 	}
 
-	newBucket, errf := s3engine.GetLocationMetadata(ctx, c.client, bucket)
+	newBucket, errf := s3engine.ScrapeLoc(ctx, c.client, bucket)
 	if errf != nil {
 		return nil, errf
 	}
@@ -268,7 +326,14 @@ func (s *ManagerService) handleLocAnalysis(ctx *gin.Context, bucName string, c C
 	return c.ProcessLoc(ctx, bucName)
 }
 
-func (s *ManagerService) AnalyzeLake(ctx *gin.Context, userID int64, lakeid string) ([]*dto.NewBucket, []*errs.Errorf) {
+
+
+
+
+
+
+
+func (s *ManagerService) AnalyzeLake(ctx *gin.Context, userID int64, lakeid string) ([]*dto.BucketData, []*errs.Errorf) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
@@ -311,10 +376,16 @@ func (s *ManagerService) AnalyzeLake(ctx *gin.Context, userID int64, lakeid stri
 		return nil, errfs
 	}
 
-	return buckets, nil
+	bucsData := make([]*dto.BucketData, 0)
+	for _, bucket := range buckets {
+		s.Stash.SetBucket(bucket)
+		bucsData = append(bucsData, &bucket.Data)
+	}
+
+	return bucsData, nil
 }
 
-func (s *ManagerService) AnalyzeLoc(ctx *gin.Context, userID int64, lakeid, locid string) (*dto.NewBucket, *errs.Errorf) {
+func (s *ManagerService) AnalyzeLoc(ctx *gin.Context, userID int64, lakeid, locid string) (*dto.BucketData, *errs.Errorf) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
@@ -369,5 +440,26 @@ func (s *ManagerService) AnalyzeLoc(ctx *gin.Context, userID int64, lakeid, loci
 		return nil, errf
 	}
 
-	return bucket, nil
+	s.Stash.SetBucket(bucket)
+
+	return &bucket.Data, nil
+}
+
+
+
+
+
+
+
+
+
+
+func (s *ManagerService) FetchLocation(ctx *gin.Context, userID int64, locid string) (*dto.NewBucket, *errs.Errorf) {
+
+	cache, errf := s.fetchCache(ctx, userID, locid)
+	if errf != nil {
+		return nil, errf
+	}
+
+	return cache.Bucket, nil
 }

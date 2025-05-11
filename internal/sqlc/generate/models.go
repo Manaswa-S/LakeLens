@@ -31,6 +31,7 @@ type Location struct {
 	LakeID     int64
 	CreatedAt  pgtype.Timestamptz
 	BucketName string
+	UserID     int64
 }
 
 type User struct {

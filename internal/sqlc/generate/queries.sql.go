@@ -57,7 +57,8 @@ const getLocationData = `-- name: GetLocationData :one
 SELECT 
     locations.loc_id,
     locations.lake_id,
-    locations.bucket_name
+    locations.bucket_name,
+    locations.user_id
 FROM locations 
 WHERE loc_id = $1
 `
@@ -66,12 +67,18 @@ type GetLocationDataRow struct {
 	LocID      int64
 	LakeID     int64
 	BucketName string
+	UserID     int64
 }
 
 func (q *Queries) GetLocationData(ctx context.Context, locID int64) (GetLocationDataRow, error) {
 	row := q.db.QueryRow(ctx, getLocationData, locID)
 	var i GetLocationDataRow
-	err := row.Scan(&i.LocID, &i.LakeID, &i.BucketName)
+	err := row.Scan(
+		&i.LocID,
+		&i.LakeID,
+		&i.BucketName,
+		&i.UserID,
+	)
 	return i, err
 }
 

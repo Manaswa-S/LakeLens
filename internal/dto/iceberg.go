@@ -24,11 +24,11 @@ type IcebergMetadata struct {
 }
 
 type IcebergSnapshot struct {
-	SnapshotRecords []formats.SnapshotRecord
+	SnapshotRecords []*formats.SnapshotRecord
 }
 
 type IcebergManifest struct {
-	ManifestEntries []formats.ManifestEntry
+	ManifestEntries []*formats.ManifestEntry
 }
 	
 

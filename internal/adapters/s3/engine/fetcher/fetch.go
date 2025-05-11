@@ -33,8 +33,8 @@ func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucketName string, l
 			defer wg.Done()
 			obj, err := client.GetObject(ctx, &s3.GetObjectInput{
 				Bucket: &bucketName,
-				Key: &path,
-				Range: &rangeHeader,
+				Key:    &path,
+				Range:  &rangeHeader,
 			})
 			if err != nil {
 				dwnldPaths = append(dwnldPaths, "")
@@ -54,10 +54,10 @@ func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucketName string, l
 			if err != nil {
 				dwnldPaths = append(dwnldPaths, "")
 				return
-			}			
+			}
 
 			dwnldPaths = append(dwnldPaths, filePath)
-		} (i, path)
+		}(i, path)
 	}
 	wg.Wait()
 	return dwnldPaths, nil
@@ -65,8 +65,8 @@ func DownloadParquetS3(ctx *gin.Context, client *s3.Client, bucketName string, l
 
 // DownloadSingleParquetS3 downloads  a parquet file from given URI.
 //
-// It first fetches last 8 bytes to determine the footer length and 
-// then downloads the footer accordingly. 
+// It first fetches last 8 bytes to determine the footer length and
+// then downloads the footer accordingly.
 // It increases latency and API calls but zeros the chances of incomplete footer fetching.
 // This shouldn't be an issue as a limit is already in place to limit the number of downloads per request.
 func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, uri string) (string, *errs.Errorf) {
@@ -75,12 +75,12 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 
 	objFooter, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
-		Key: &uri,
-		Range: &rangeHeader,
+		Key:    &uri,
+		Range:  &rangeHeader,
 	})
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrServiceUnavailable,
+			Type:    errs.ErrServiceUnavailable,
 			Message: "Failed to get parquet file :  " + err.Error(),
 		}
 	}
@@ -97,25 +97,25 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	footerLen := int64(binary.LittleEndian.Uint32(objBody[:4]))
 	objFooter.Body.Close()
 
-	rangeHeader = fmt.Sprintf("bytes=-%d", footerLen + 8) 
+	rangeHeader = fmt.Sprintf("bytes=-%d", footerLen+8)
 	completeObj, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
-		Key: &uri,
-		Range: &rangeHeader,
+		Key:    &uri,
+		Range:  &rangeHeader,
 	})
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrServiceUnavailable,
+			Type:    errs.ErrServiceUnavailable,
 			Message: "Failed to get parquet file :  " + err.Error(),
 		}
 	}
 	defer completeObj.Body.Close()
 
-	dirPath := filepath.Join(configs.ParquetDownloadS3Path, bucketName)
+	dirPath := filepath.Join(configs.S3DownPath, bucketName)
 	err = os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to create parquet download directory : " + err.Error(),
 		}
 	}
@@ -125,7 +125,7 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	outFile, err := os.Create(filePath)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to create parquet file : " + err.Error(),
 		}
 	}
@@ -133,7 +133,7 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	_, err = io.Copy(outFile, completeObj.Body)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to copy/write to outFile : " + err.Error(),
 		}
 	}
@@ -141,29 +141,27 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	return filePath, nil
 }
 
-// DownloadIcebergS3 downloads iceberg metadata files from S3
-// , stores them locally and returns their local filepaths.
-func DownIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
+// FetchNdSave downloads the given file at {key} in bucket {bucketName} and saves it at {saveDir/bucketName/fileName}.
+// The filename is the same as in the lake.
+func FetchNdSave(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
 
-	basePath := configs.IcebergDownloadS3Path
-	
 	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
-		Key: &key,
+		Key:    &key,
 	})
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrServiceUnavailable,
+			Type:    errs.ErrServiceUnavailable,
 			Message: "Failed to get object : " + err.Error(),
 		}
 	}
 	defer obj.Body.Close()
 
-	dirPath := filepath.Join(basePath, bucketName)
+	dirPath := filepath.Join(configs.S3DownPath, bucketName)
 	err = os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to make directory : " + err.Error(),
 		}
 	}
@@ -174,7 +172,7 @@ func DownIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) 
 	outFile, err := os.Create(filePath)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to create file : " + err.Error(),
 		}
 	}
@@ -182,63 +180,10 @@ func DownIcebergS3(ctx *gin.Context, client *s3.Client, bucketName, key string) 
 	_, err = io.Copy(outFile, obj.Body)
 	if err != nil {
 		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to copy/write to outFile : " + err.Error(),
 		}
 	}
 
 	return filePath, nil
 }
-
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-
-func DownAvroS3(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
-
-	basePath := configs.IcebergDownloadS3Path
-	
-	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: &bucketName,
-		Key: &key,
-	})
-	if err != nil {
-		return "", &errs.Errorf{
-			Type: errs.ErrServiceUnavailable,
-			Message: "Failed to get object : " + err.Error(),
-		}
-	}
-	defer obj.Body.Close()
-
-	dirPath := filepath.Join(basePath, bucketName)
-	err = os.MkdirAll(dirPath, 0755)
-	if err != nil {
-		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
-			Message: "Failed to make directory : " + err.Error(),
-		}
-	}
-
-	pathSplits := strings.Split(key, "/")
-	filePath := filepath.Join(dirPath, pathSplits[len(pathSplits)-1])
-
-	outFile, err := os.Create(filePath)
-	if err != nil {
-		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
-			Message: "Failed to create file : " + err.Error(),
-		}
-	}
-
-	_, err = io.Copy(outFile, obj.Body)
-	if err != nil {
-		return "", &errs.Errorf{
-			Type: errs.ErrStorageFailed,
-			Message: "Failed to copy/write to outFile : " + err.Error(),
-		}
-	}
-
-	return filePath, nil
-}
-
-

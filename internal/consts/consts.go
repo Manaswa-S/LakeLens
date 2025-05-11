@@ -11,7 +11,7 @@ const (
 	UnknownFile = "unknown"
 )
 
-// General storage type names.
+// General storage type names. Do Not Change.
 const (
 	AWSS3 = "awsS3"
 	Azure = "azure"

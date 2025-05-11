@@ -56,9 +56,15 @@ CREATE TABLE IF NOT EXISTS public.locations
     lake_id bigint NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     bucket_name text COLLATE pg_catalog."default" NOT NULL,
+    user_id bigint NOT NULL DEFAULT 1,
     CONSTRAINT locations_pkey PRIMARY KEY (loc_id),
     CONSTRAINT lakes_lake_id_fkey FOREIGN KEY (lake_id)
         REFERENCES public.lakes (lake_id) MATCH SIMPLE
         ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT users_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.users (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
         ON DELETE CASCADE
-)
+        NOT VALID
+);

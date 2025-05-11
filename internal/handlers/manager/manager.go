@@ -92,3 +92,34 @@ func (h *ManagerHandler) AnalyzeLoc(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, response)
 }
+
+func (h *ManagerHandler) FetchLocation(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		return
+	}
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		return
+	}
+
+	// userID, errf := h.extractUserID(ctx)
+	// if errf != nil {
+	// 	ctx.JSON(http.StatusBadRequest, errf)
+	// 	return
+	// }
+
+	response, errf := h.Manager.FetchLocation(ctx, 1000000, locid)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}

@@ -78,8 +78,8 @@ func (c *StashService) SetBucket(bucket *dto.NewBucket) {
 	switch bucket.Data.StorageType {
 	case consts.AWSS3:
 		// cache in s3
-		c.DelBucketS3(*bucket.Data.Name)
-		c.buckets.s3[*bucket.Data.Name] = &CacheMetadata{
+		c.DelBucketS3(bucket.Data.Name)
+		c.buckets.s3[bucket.Data.Name] = &CacheMetadata{
 			Bucket: bucket,
 			CreatedAt: time.Now().UnixMilli(),
 			UpdatedAt: bucket.Data.UpdatedAt,
@@ -91,6 +91,8 @@ func (c *StashService) SetBucket(bucket *dto.NewBucket) {
 	}
 	c.bucMU.Unlock()
 }
+
+
 
 func (c *StashService) GetBucketS3(bucketName string) (*CacheMetadata, bool) {
 	c.bucMU.Lock()

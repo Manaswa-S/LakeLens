@@ -28,10 +28,10 @@ WHERE lakes.lake_id = $1;
 SELECT 
     locations.loc_id,
     locations.lake_id,
-    locations.bucket_name
+    locations.bucket_name,
+    locations.user_id
 FROM locations 
 WHERE loc_id = $1;
-
 
 
 

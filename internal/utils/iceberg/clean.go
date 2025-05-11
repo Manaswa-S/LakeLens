@@ -59,7 +59,7 @@ func CleanManifest(recordMaps []map[string]any) (*dto.IcebergManifest) {
 			},
 		}
 
-		records.ManifestEntries = append(records.ManifestEntries, manifestEntry)
+		records.ManifestEntries = append(records.ManifestEntries, &manifestEntry)
 	}
 
 	return records
@@ -88,7 +88,7 @@ func CleanSnapshot(recordMaps []map[string]any) (*dto.IcebergSnapshot) {
 			SequenceNumber:         recordMap["sequence_number"].(int64),
 		}
 
-		records.SnapshotRecords = append(records.SnapshotRecords, snap)
+		records.SnapshotRecords = append(records.SnapshotRecords, &snap)
 	}
 	
 	return records

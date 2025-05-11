@@ -29,6 +29,9 @@ func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 	// starts analyzing requested lake, lake should obv be already registered
 	routegrp.GET("/analyze/:lakeid/:locid", h.AnalyzeLoc)
 
+	// returns the entire report of a location
+	routegrp.GET("/fetch/:lakeid/:locid", h.FetchLocation)
+
 }
 
 // extractUserID extracts the user ID and other required parameters from the context with explicit type assertion.
