@@ -18,3 +18,10 @@ const (
 
 	ParquetFilesLimit = 12
 )
+
+const (
+	EPassAuth = "epass"
+	GoogleOAuth = "goauth"
+)
+
+

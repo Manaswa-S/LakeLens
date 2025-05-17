@@ -16,6 +16,21 @@ CREATE TABLE IF NOT EXISTS public.users
         INCLUDE(user_uuid)
 );
 
+CREATE TABLE IF NOT EXISTS public.goauth
+(
+    auth_id bigint NOT NULL DEFAULT nextval('goauth_auth_id_seq'::regclass),
+    user_id bigint NOT NULL,
+    email text COLLATE pg_catalog."default" NOT NULL,
+    name text COLLATE pg_catalog."default",
+    picture text COLLATE pg_catalog."default",
+    id text COLLATE pg_catalog."default",
+    CONSTRAINT goauth_pkey PRIMARY KEY (auth_id),
+    CONSTRAINT users_goauth_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.users (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS public.lakes
 (
     lake_id bigint NOT NULL DEFAULT nextval('lakes_lake_id_seq'::regclass),

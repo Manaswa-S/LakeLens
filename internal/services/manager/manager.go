@@ -44,7 +44,6 @@ func NewManagerService(queries *sqlc.Queries, redis *redis.Client, db *pgxpool.P
 	}
 }
 
-
 func (s *ManagerService) fetchCache(ctx *gin.Context, userID int64, locid string) (*stash.CacheMetadata, *errs.Errorf) {
 
 	locID, err := strconv.ParseInt(locid, 10, 64)
@@ -57,6 +56,13 @@ func (s *ManagerService) fetchCache(ctx *gin.Context, userID int64, locid string
 
 	locData, err := s.Queries.GetLocationData(ctx, locID)
 	if err != nil {
+		if err.Error() == errs.PGErrNoRowsFound {
+			return nil, &errs.Errorf{
+				Type:      errs.ErrNotFound,
+				Message:   "Requested resource not found, no such location registered.",
+				ReturnRaw: true,
+			}
+		}
 		return nil, &errs.Errorf{
 			Type:    errs.ErrDBQuery,
 			Message: "Failed to get location data : " + err.Error(),
@@ -100,7 +106,6 @@ func (s *ManagerService) fetchCache(ctx *gin.Context, userID int64, locid string
 
 	return cache, nil
 }
-
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Registering a new lake
@@ -326,18 +331,16 @@ func (s *ManagerService) handleLocAnalysis(ctx *gin.Context, bucName string, c C
 	return c.ProcessLoc(ctx, bucName)
 }
 
-
-
-
-
-
-
-
 func (s *ManagerService) AnalyzeLake(ctx *gin.Context, userID int64, lakeid string) ([]*dto.BucketData, []*errs.Errorf) {
 
 	lakeID, err := strconv.ParseInt(lakeid, 10, 64)
 	if err != nil {
-		return nil, nil
+		return nil, []*errs.Errorf{
+			&errs.Errorf{
+				Type:    errs.ErrBadForm,
+				Message: "Failed to parse lake id as int64 : " + err.Error(),
+			},
+		}
 	}
 
 	//
@@ -444,15 +447,6 @@ func (s *ManagerService) AnalyzeLoc(ctx *gin.Context, userID int64, lakeid, loci
 
 	return &bucket.Data, nil
 }
-
-
-
-
-
-
-
-
-
 
 func (s *ManagerService) FetchLocation(ctx *gin.Context, userID int64, locid string) (*dto.NewBucket, *errs.Errorf) {
 

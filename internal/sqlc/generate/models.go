@@ -17,6 +17,15 @@ type Credential struct {
 	Region    string
 }
 
+type Goauth struct {
+	AuthID  int64
+	UserID  int64
+	Email   string
+	Name    pgtype.Text
+	Picture pgtype.Text
+	ID      pgtype.Text
+}
+
 type Lake struct {
 	LakeID    int64
 	UserID    int64

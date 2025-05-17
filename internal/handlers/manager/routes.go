@@ -38,7 +38,7 @@ func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 // any returned error is directly included in the response as returned
 func (h *ManagerHandler) extractUserID(ctx *gin.Context) (int64, *errs.Errorf) {
 
-	userid, exists := ctx.Get("ID")
+	userid, exists := ctx.Get("rid")
 	if !exists {
 		return 0, &errs.Errorf{
 			Type:      errs.ErrInvalidCredentials,

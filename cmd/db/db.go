@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	sqlc "lakelens/internal/sqlc/generate"
 	"os"
@@ -10,68 +11,99 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type DataStore struct {
+	PgPool *pgxpool.Pool
+	Queries *sqlc.Queries
+	Redis *redis.Client
+}
+func NewDataStore() (*DataStore, error) {
 
-var	Pool *pgxpool.Pool
-var	QueriesPool *sqlc.Queries
-var	RedisClient *redis.Client
-var err error
+	ds := new(DataStore)
+	var err error
+	ds.PgPool, ds.Queries, err = InitDB()
+	if err != nil {
+		return nil, err
+	}
 
-func InitDB() (error) {
+	ds.Redis, err = InitRedis()
+	if err != nil {
+		return nil, err
+	}
+
+	return ds, nil	
+}
+
+
+func InitDB() (*pgxpool.Pool, *sqlc.Queries, error) {
 	fmt.Println("Connecting to Databases and Cache...")
-	// create context object
+
 	ctx := context.Background()
-	
-	// initialize database
-	dbConn := os.Getenv("DBLoginCredentials")
-	Pool, err = pgxpool.New(ctx, dbConn)
-	if err != nil {
-		return fmt.Errorf("error creating database pool: %s", err)
+
+	dbConnStr, exists := os.LookupEnv("PG_DB_CONN_STR")
+	if !exists {
+		return nil, nil, errors.New("pg db conn str not found in env")
 	}
 
-	// inittialize queries pool
-	QueriesPool = sqlc.New(Pool)
-
-
-
-	// sqlc.New(pool).WithTx()
-
-	
-	// // Connect to redis client
-	// RedisClient = redis.NewClient(&redis.Options{
-	// 	Addr: os.Getenv("RedisAddress"),
-	// 	Password: os.Getenv("RedisPassword"),
-	// 	DB: 0,
-	// 	Protocol: 2,
-	// })
-	// _, err = RedisClient.Ping(ctx).Result()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to connect to Redis: %v", err)
-	// }
-	// fmt.Println("Redis connection is alive!")
-
-	conn, err := Pool.Acquire(context.Background())
+	pool, err := pgxpool.New(ctx, dbConnStr)
 	if err != nil {
-		return fmt.Errorf("pgx Pool connection failed: %v", err)
+		return nil, nil, fmt.Errorf("error creating database pool: %s", err)
 	}
-	err = conn.Ping(context.Background())
+
+	conn, err := pool.Acquire(ctx)
 	if err != nil {
-		return fmt.Errorf("database connection failed: %v", err)
+		return nil, nil, errors.New("pgx Pool connection failed : " + err.Error())
+	}
+	defer conn.Release()
+
+	err = conn.Ping(ctx)
+	if err != nil {
+		return nil, nil, errors.New("database connection failed : " + err.Error())
 	} else {
 		fmt.Println("Database connection is alive!")
 	}
 
+	queries := sqlc.New(pool)
 
-	return nil
+	return pool, queries, nil
 }
 
-// Close DB and Redis connections
-func Close() (error) {
-	fmt.Println("Closing connections to Databases and Cache...")
-	if Pool != nil {
-		Pool.Close()
+func InitRedis() (*redis.Client, error) {
+	
+	ctx := context.Background()
+
+	connStr, exists := os.LookupEnv("REDIS_DB_CONN_STR")
+	if !exists {
+		return nil, errors.New("redis pass not found in env")
 	}
-	if RedisClient != nil {
-		return RedisClient.Close()
+
+	redisOpts, err := redis.ParseURL(connStr)
+	if err != nil {
+		return nil, errors.New("failed to parse redis conn url : " + err.Error())
 	}
+
+	redCl := redis.NewClient(redisOpts)
+
+	if _, err := redCl.Ping(ctx).Result(); err != nil {
+		return nil, errors.New("Redis basic access failed (PING failed):" + err.Error())
+	}
+	fmt.Println("Redis connection is alive!")
+
+	return redCl, nil
+}
+
+
+
+// Close Data store connections
+func Close(ds *DataStore) error {
+	fmt.Println("Closing connections of Data stores...")
+
+	if ds.PgPool != nil {
+		ds.PgPool.Close()
+	}
+
+	if ds.Redis != nil {
+		return ds.Redis.Close()
+	}
+
 	return nil
 }

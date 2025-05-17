@@ -24,21 +24,26 @@ func main() {
 		return
 	}
 
-	err = db.InitDB()
+	dataStore, err := db.NewDataStore()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-
-	err = server.InitHTTPServer()
+	err = server.InitHTTPServer(dataStore)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	<-flowChan
+
 	fmt.Println("shutting down")
+
+	if err := db.Close(dataStore); err != nil {
+		fmt.Println(err)
+	}
+
 }
 
 

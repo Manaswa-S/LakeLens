@@ -7,7 +7,26 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const checkIfEPassOnly = `-- name: CheckIfEPassOnly :one
+SELECT
+    users.user_id
+FROM users
+WHERE NOT EXISTS (
+    SELECT 1 FROM goauth WHERE users.user_id = goauth.user_id
+)
+AND users.email = $1
+`
+
+func (q *Queries) CheckIfEPassOnly(ctx context.Context, email string) (int64, error) {
+	row := q.db.QueryRow(ctx, checkIfEPassOnly, email)
+	var user_id int64
+	err := row.Scan(&user_id)
+	return user_id, err
+}
 
 const getCredentials = `-- name: GetCredentials :one
 SELECT 
@@ -28,6 +47,28 @@ func (q *Queries) GetCredentials(ctx context.Context, lakeID int64) (GetCredenti
 	row := q.db.QueryRow(ctx, getCredentials, lakeID)
 	var i GetCredentialsRow
 	err := row.Scan(&i.KeyID, &i.Key, &i.Region)
+	return i, err
+}
+
+const getGoogleID = `-- name: GetGoogleID :one
+SELECT
+    goauth.auth_id,
+    goauth.email,
+    goauth.id
+FROM goauth
+WHERE goauth.user_id = $1
+`
+
+type GetGoogleIDRow struct {
+	AuthID int64
+	Email  string
+	ID     pgtype.Text
+}
+
+func (q *Queries) GetGoogleID(ctx context.Context, userID int64) (GetGoogleIDRow, error) {
+	row := q.db.QueryRow(ctx, getGoogleID, userID)
+	var i GetGoogleIDRow
+	err := row.Scan(&i.AuthID, &i.Email, &i.ID)
 	return i, err
 }
 
@@ -82,6 +123,69 @@ func (q *Queries) GetLocationData(ctx context.Context, locID int64) (GetLocation
 	return i, err
 }
 
+const getPassForUserID = `-- name: GetPassForUserID :one
+SELECT 
+    users.password
+FROM users 
+WHERE users.user_id = $1
+`
+
+func (q *Queries) GetPassForUserID(ctx context.Context, userID int64) (string, error) {
+	row := q.db.QueryRow(ctx, getPassForUserID, userID)
+	var password string
+	err := row.Scan(&password)
+	return password, err
+}
+
+const getUserData = `-- name: GetUserData :one
+SELECT 
+    users.confirmed,
+    users.user_uuid
+FROM users 
+WHERE users.user_id = $1
+`
+
+type GetUserDataRow struct {
+	Confirmed bool
+	UserUuid  pgtype.UUID
+}
+
+func (q *Queries) GetUserData(ctx context.Context, userID int64) (GetUserDataRow, error) {
+	row := q.db.QueryRow(ctx, getUserData, userID)
+	var i GetUserDataRow
+	err := row.Scan(&i.Confirmed, &i.UserUuid)
+	return i, err
+}
+
+const getUserFromEmail = `-- name: GetUserFromEmail :one
+SELECT 
+    users.user_id,
+    users.password,
+    users.confirmed,
+    users.user_uuid
+FROM users 
+WHERE users.email = $1
+`
+
+type GetUserFromEmailRow struct {
+	UserID    int64
+	Password  string
+	Confirmed bool
+	UserUuid  pgtype.UUID
+}
+
+func (q *Queries) GetUserFromEmail(ctx context.Context, email string) (GetUserFromEmailRow, error) {
+	row := q.db.QueryRow(ctx, getUserFromEmail, email)
+	var i GetUserFromEmailRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Password,
+		&i.Confirmed,
+		&i.UserUuid,
+	)
+	return i, err
+}
+
 const insertNewCredentails = `-- name: InsertNewCredentails :exec
 INSERT INTO credentials (lake_id, key_id, key, region)
 VALUES ($1, $2, $3, $4)
@@ -100,6 +204,30 @@ func (q *Queries) InsertNewCredentails(ctx context.Context, arg InsertNewCredent
 		arg.KeyID,
 		arg.Key,
 		arg.Region,
+	)
+	return err
+}
+
+const insertNewGOAuth = `-- name: InsertNewGOAuth :exec
+INSERT INTO goauth (user_id, email, name, picture, id)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertNewGOAuthParams struct {
+	UserID  int64
+	Email   string
+	Name    pgtype.Text
+	Picture pgtype.Text
+	ID      pgtype.Text
+}
+
+func (q *Queries) InsertNewGOAuth(ctx context.Context, arg InsertNewGOAuthParams) error {
+	_, err := q.db.Exec(ctx, insertNewGOAuth,
+		arg.UserID,
+		arg.Email,
+		arg.Name,
+		arg.Picture,
+		arg.ID,
 	)
 	return err
 }
@@ -129,9 +257,10 @@ func (q *Queries) InsertNewLake(ctx context.Context, arg InsertNewLakeParams) (i
 	return lake_id, err
 }
 
-const insertNewUser = `-- name: InsertNewUser :exec
+const insertNewUser = `-- name: InsertNewUser :one
 INSERT INTO users (email, password) 
 VALUES ($1, $2)
+RETURNING users.user_id
 `
 
 type InsertNewUserParams struct {
@@ -139,7 +268,25 @@ type InsertNewUserParams struct {
 	Password string
 }
 
-func (q *Queries) InsertNewUser(ctx context.Context, arg InsertNewUserParams) error {
-	_, err := q.db.Exec(ctx, insertNewUser, arg.Email, arg.Password)
+func (q *Queries) InsertNewUser(ctx context.Context, arg InsertNewUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertNewUser, arg.Email, arg.Password)
+	var user_id int64
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const updatePass = `-- name: UpdatePass :exec
+UPDATE users
+SET password = $2
+WHERE user_id = $1
+`
+
+type UpdatePassParams struct {
+	UserID   int64
+	Password string
+}
+
+func (q *Queries) UpdatePass(ctx context.Context, arg UpdatePassParams) error {
+	_, err := q.db.Exec(ctx, updatePass, arg.UserID, arg.Password)
 	return err
 }

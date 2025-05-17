@@ -44,18 +44,32 @@ func (h *ManagerHandler) AnalyzeLake(ctx *gin.Context) {
 
 	lakeid := ctx.Param("lakeid")
 	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing lakeid param in url.",
+			ReturnRaw: true,
+		})
 		return
 	}
 
-	// userID, errf := h.extractUserID(ctx)
-	// if errf != nil {
-	// 	ctx.JSON(http.StatusBadRequest, errf)
-	// 	return
-	// }
+	userID, errf := h.extractUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
 
-	response, errfs := h.Manager.AnalyzeLake(ctx, 1, lakeid)
+	response, errfs := h.Manager.AnalyzeLake(ctx, userID, lakeid)
 	if len(errfs) != 0 {
-		fmt.Println(errfs)
+		errResp := make([]*errs.Errorf, 0)
+		for _, errf := range errfs {
+			if errf.ReturnRaw {
+				errResp = append(errResp, errf)
+			} else {
+				// TODO: handle, probably send over to the error channel
+				fmt.Println(errf.Message)
+			}
+		}
+		ctx.JSON(http.StatusBadRequest, errResp)
 		return
 	}
 
