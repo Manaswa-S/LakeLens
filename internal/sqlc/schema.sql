@@ -3,10 +3,10 @@ CREATE TABLE IF NOT EXISTS public.users
 (
     user_id bigint NOT NULL DEFAULT nextval('users_user_id_seq'::regclass),
     email character varying(320) COLLATE pg_catalog."default" NOT NULL,
-    password character varying(72) COLLATE pg_catalog."default" NOT NULL,
     confirmed boolean NOT NULL DEFAULT false,
     created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_uuid uuid NOT NULL DEFAULT gen_random_uuid(),
+    auth_type auth_types NOT NULL,
     CONSTRAINT users_pkey PRIMARY KEY (user_id),
     CONSTRAINT unique_email UNIQUE (email)
         INCLUDE(email),
@@ -30,6 +30,45 @@ CREATE TABLE IF NOT EXISTS public.goauth
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS public.epauth
+(
+    auth_id bigint NOT NULL DEFAULT nextval('epauth_auth_id_seq'::regclass),
+    user_id bigint NOT NULL,
+    email text COLLATE pg_catalog."default" NOT NULL,
+    password text COLLATE pg_catalog."default" NOT NULL,
+    name text COLLATE pg_catalog."default",
+    picture text COLLATE pg_catalog."default",
+    CONSTRAINT epauth_pkey PRIMARY KEY (auth_id),
+    CONSTRAINT users_epauth_user_id FOREIGN KEY (user_id)
+        REFERENCES public.users (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+        NOT VALID
+);
+
+
+CREATE TABLE IF NOT EXISTS public.settings
+(
+    set_id bigint NOT NULL DEFAULT nextval('settings_set_id_seq'::regclass),
+    user_id bigint NOT NULL,
+    last_updated timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    advmeta boolean NOT NULL DEFAULT false,
+    cmptview boolean NOT NULL DEFAULT true,
+    rfrshint smallint NOT NULL DEFAULT 30,
+    notif boolean NOT NULL DEFAULT true,
+    theme character varying(25) COLLATE pg_catalog."default" NOT NULL DEFAULT 'light'::character varying,
+    fontsz smallint NOT NULL DEFAULT 16,
+    tooltps boolean NOT NULL DEFAULT true,
+    shortcuts boolean NOT NULL DEFAULT true,
+    CONSTRAINT settings_pkey PRIMARY KEY (set_id),
+    CONSTRAINT settings_users_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.users (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+        NOT VALID
+);
+
 
 CREATE TABLE IF NOT EXISTS public.lakes
 (

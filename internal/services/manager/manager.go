@@ -13,11 +13,14 @@ import (
 	utils "lakelens/internal/utils/common"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -112,6 +115,15 @@ func (s *ManagerService) fetchCache(ctx *gin.Context, userID int64, locid string
 
 func (s *ManagerService) processNewS3(ctx *gin.Context, userID int64, name string, data *dto.NewLakeS3) ([]types.Bucket, *errs.Errorf) {
 
+	// TODO:
+	// this gets weird here.
+	// 1) check if we got access for all required policies
+	// 2) fetch all buckets for them, irrespective of how much time/resources it takes.
+	// 3) the user sends what all buckets he wants to be analyzed.
+	// 4) if the number(buckets.requested_by_user) < limit > OK > do it.
+	//    else tell the user that this is too heavy of a task and that he will need to lessen the number of locations.
+
+
 	client, err := s.Stash.NewS3Client(ctx, data.AccessID, data.AccessKey, data.LakeRegion, "")
 	if err != nil {
 		return nil, &errs.Errorf{
@@ -124,25 +136,25 @@ func (s *ManagerService) processNewS3(ctx *gin.Context, userID int64, name strin
 	buckets := []types.Bucket{}
 	var continueToken *string
 
-	for {
-		result, err := client.ListBuckets(ctx, &s3.ListBucketsInput{
-			ContinuationToken: continueToken,
-		})
-		if err != nil {
+	result, err := client.ListBuckets(ctx, &s3.ListBucketsInput{
+		ContinuationToken: continueToken,
+	})
+	if err != nil {
+		var serr *smithy.OperationError
+		if errors.As(err, &serr) {
 			return nil, &errs.Errorf{
-				Type:    errs.ErrInternalServer,
-				Message: "Failed to list buckets for client : " + err.Error(),
+				Type:      errs.ErrInvalidCredentials,
+				Message:   "Invalid ID, Key or Region were provided. Please check your inputs.",
+				ReturnRaw: true,
 			}
 		}
-
-		buckets = append(buckets, result.Buckets...)
-
-		if result.ContinuationToken == nil {
-			break
+		return nil, &errs.Errorf{
+			Type:    errs.ErrInternalServer,
+			Message: "Failed to list buckets for client : " + err.Error(),
 		}
-
-		continueToken = result.ContinuationToken
 	}
+
+	buckets = append(buckets, result.Buckets...)
 
 	cipherKey, err := utils.EncryptStringAESGSM(data.AccessKey)
 	if err != nil {
@@ -215,20 +227,29 @@ func processNewAzure() {
 }
 
 // RegisterNewLake registers a new lake, retrieves available buckets.
-func (s *ManagerService) RegisterNewLake(ctx *gin.Context, userID int64, data *dto.NewLake) (any, *errs.Errorf) {
+func (s *ManagerService) RegisterNewLake(ctx *gin.Context, userID int64, data *dto.NewLake) ([]dto.NewLakeResp, *errs.Errorf) {
 	// TODO: data validation needs to be done here.
 
 	// TODO: its difficult to gauge requirements when provider types increase, lets solve it later.
 
-	var buckets []types.Bucket
-	var errf *errs.Errorf
+	var lakeResp []dto.NewLakeResp
+
 	// < Trial
 
 	if data.S3 != nil {
 		// process s3
-		buckets, errf = s.processNewS3(ctx, userID, data.Name, data.S3)
+		fmt.Println("Adding new lake")
+		buckets, errf := s.processNewS3(ctx, userID, data.Name, data.S3)
 		if errf != nil {
 			return nil, errf
+		}
+
+		for _, buc := range buckets {
+			lakeResp = append(lakeResp, dto.NewLakeResp{
+				Name:         buc.Name,
+				Region:       buc.BucketRegion,
+				CreationDate: buc.CreationDate,
+			})
 		}
 
 	} else if data.Azure != nil {
@@ -243,10 +264,230 @@ func (s *ManagerService) RegisterNewLake(ctx *gin.Context, userID int64, data *d
 
 	// >
 
-	return buckets, nil
+	return lakeResp, nil
 }
 
+
+
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+func (s *ManagerService) AddLocations(ctx *gin.Context, userID int64, data *dto.AddLocsReq) (*errs.Errorf) {
+
+	
+
+
+
+
+
+	return nil
+}
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+// 1) sends the basic account details
+// 2) sends the billing details
+// 3) sends the lakes and locations details
+// 4) sends the user settings and preferences
+
+// TODO:
+// 5) also need collaborators and other details
+
+func (s *ManagerService) AccDetails(ctx *gin.Context, userID int64) (*dto.AccDetailsResp, *errs.Errorf) {
+
+	userDetails, err := s.Queries.AccDetails(ctx, userID)
+	if err != nil {
+		if err.Error() == errs.PGErrNoRowsFound {
+			return nil, &errs.Errorf{
+				Type:      errs.ErrBadRequest,
+				Message:   "Invalid user tokens. Please login again.",
+				ReturnRaw: true,
+			}
+		}
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get account/user details : " + err.Error(),
+		}
+	}
+
+	switch userDetails.AuthType {
+
+	case consts.EPassAuth:
+		{
+			accDetails, err := s.Queries.GetEPDetails(ctx, userID)
+			if err != nil {
+				return nil, &errs.Errorf{
+					Type:    errs.ErrDBQuery,
+					Message: "Failed to get EP account details : " + err.Error(),
+				}
+			}
+
+			return &dto.AccDetailsResp{
+				Email:     userDetails.Email,
+				CreatedAt: userDetails.CreatedAt.Time,
+				Confirmed: userDetails.Confirmed,
+				UUID:      userDetails.UserUuid.String(),
+
+				Name:    accDetails.Name.String,
+				Picture: accDetails.Picture.String,
+
+				AuthType: consts.EPassAuth,
+			}, nil
+		}
+	case consts.GoogleOAuth:
+		{
+			accDetails, err := s.Queries.GetGODetails(ctx, userID)
+			if err != nil {
+				return nil, &errs.Errorf{
+					Type:    errs.ErrDBQuery,
+					Message: "Failed to get GO account details : " + err.Error(),
+				}
+			}
+
+			return &dto.AccDetailsResp{
+				Email:     userDetails.Email,
+				CreatedAt: userDetails.CreatedAt.Time,
+				Confirmed: userDetails.Confirmed,
+				UUID:      userDetails.UserUuid.String(),
+
+				Name:    accDetails.Name.String,
+				Picture: accDetails.Picture.String,
+
+				AuthType: consts.GoogleOAuth,
+			}, nil
+		}
+
+	default:
+		return nil, &errs.Errorf{
+			Type:    errs.ErrOutOfRange,
+			Message: "Couldn't determine the auth type for account details. Can be a critical error.",
+		}
+	}
+}
+
+func (s *ManagerService) AccBilling(ctx *gin.Context, userID int64) (*dto.AccBillingResp, *errs.Errorf) {
+
+	return &dto.AccBillingResp{
+		Type:       "Free",
+		Applicable: true,
+	}, nil
+}
+
+func (s *ManagerService) AccProjects(ctx *gin.Context, userID int64) (*dto.AccProjectsResp, *errs.Errorf) {
+
+	lakesList, err := s.Queries.GetLakesList(ctx, userID)
+	if err != nil {
+		if err.Error() != errs.PGErrNoRowsFound {
+			return nil, &errs.Errorf{
+				Type:    errs.ErrDBQuery,
+				Message: "Failed to get lakes list from db : " + err.Error(),
+			}
+		}
+	}
+
+	locsList, err := s.Queries.GetLocsList(ctx, userID)
+	if err != nil {
+		if err.Error() != errs.PGErrNoRowsFound {
+			return nil, &errs.Errorf{
+				Type:    errs.ErrDBQuery,
+				Message: "Failed to get locations list from db : " + err.Error(),
+			}
+		}
+	}
+
+	combos := make(map[int64]*dto.LocsForLake)
+	for _, lake := range lakesList {
+		a := dto.LakeResp{
+			LakeID:    lake.LakeID,
+			Name:      lake.Name,
+			Ptype:     lake.Ptype,
+			CreatedAt: lake.CreatedAt.Time,
+			Region:    lake.Region,
+		}
+		combos[a.LakeID] = &dto.LocsForLake{
+			Lake: a,
+		}
+	}
+
+	for _, loc := range locsList {
+		a := dto.LocResp{
+			LocID:      loc.LocID,
+			LakeID:     loc.LakeID,
+			BucketName: loc.BucketName,
+			CreatedAt:  loc.CreatedAt.Time,
+		}
+		combos[a.LakeID].Locs = append(combos[a.LakeID].Locs, a)
+	}
+
+	list := make([]*dto.LocsForLake, 0)
+	for _, b := range combos {
+		list = append(list, b)
+	}
+
+	return &dto.AccProjectsResp{
+		LocsForLake: list,
+	}, nil
+}
+
+func (s *ManagerService) AccSettings(ctx *gin.Context, userID int64) (*dto.AccSettingsResp, *errs.Errorf) {
+
+	settings, err := s.Queries.GetSettings(ctx, userID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get settings for user : " + err.Error(),
+		}
+	}
+
+	return &dto.AccSettingsResp{
+		AdvancedMetaData:    settings.Advmeta,
+		CompactView:         settings.Cmptview,
+		AutoRefreshInterval: int32(settings.Rfrshint),
+		Notifications:       settings.Notif,
+
+		Theme:        settings.Theme,
+		FontSize:     int32(settings.Fontsz),
+		ShowToolTips: settings.Tooltps,
+
+		KeyboardShortcuts: settings.Shortcuts,
+	}, nil
+}
+
+func (s *ManagerService) AccSettingsUpdate(ctx *gin.Context, data *dto.AccSettingsResp, userID int64) *errs.Errorf {
+
+	if data.AutoRefreshInterval > 60 || data.AutoRefreshInterval <= 15 {
+		return &errs.Errorf{
+			Type:      errs.ErrInvalidInput,
+			Message:   "The auto refresh interval should be between 15 and 60 only.",
+			ReturnRaw: true,
+		}
+	}
+
+	if data.FontSize > 35 || data.AutoRefreshInterval <= 5 {
+		return &errs.Errorf{
+			Type:      errs.ErrInvalidInput,
+			Message:   "The font size should be between 5 and 35 only.",
+			ReturnRaw: true,
+		}
+	}
+
+	err := s.Queries.UpdateSettings(ctx, sqlc.UpdateSettingsParams{
+		UserID:      userID,
+		LastUpdated: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		Advmeta:     data.AdvancedMetaData,
+		Cmptview:    data.CompactView,
+		Rfrshint:    int16(data.AutoRefreshInterval),
+		Notif:       data.Notifications,
+		Theme:       data.Theme,
+		Fontsz:      int16(data.FontSize),
+		Tooltps:     data.ShowToolTips,
+		Shortcuts:   data.KeyboardShortcuts,
+	})
+	if err != nil {
+		return &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get settings for user : " + err.Error(),
+		}
+	}
+	return nil
+}
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // Analyzing a lake

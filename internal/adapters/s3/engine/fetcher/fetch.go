@@ -111,7 +111,7 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 	}
 	defer completeObj.Body.Close()
 
-	dirPath := filepath.Join(configs.S3DownPath, bucketName)
+	dirPath := filepath.Join(configs.Paths.DownSavePaths.S3DownPath, bucketName)
 	err = os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		return "", &errs.Errorf{
@@ -157,7 +157,7 @@ func FetchNdSave(ctx *gin.Context, client *s3.Client, bucketName, key string) (s
 	}
 	defer obj.Body.Close()
 
-	dirPath := filepath.Join(configs.S3DownPath, bucketName)
+	dirPath := filepath.Join(configs.Paths.DownSavePaths.S3DownPath, bucketName)
 	err = os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		return "", &errs.Errorf{

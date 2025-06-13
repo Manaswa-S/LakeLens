@@ -22,10 +22,15 @@ func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: add JWT and then ctx data extraction
-
-	buckets, errf := h.Manager.RegisterNewLake(ctx, 1000000, data)
+	userID, errf := h.getUserID(ctx)
 	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	buckets, errf := h.Manager.RegisterNewLake(ctx, userID, data)
+	if errf != nil {
+		fmt.Println(errf.Message)
 		if errf.ReturnRaw {
 			ctx.JSON(http.StatusBadRequest, errf)
 		} else {
@@ -34,11 +39,167 @@ func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
 		return
 	}
 
+	ctx.JSON(http.StatusCreated, buckets)
+}
+
+func (h *ManagerHandler) AddLocations(ctx *gin.Context) {
+
+	data := new(dto.AddLocsReq)
+	err := ctx.Bind(data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrBadForm,
+			Message:   "Missing or invalid form format.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	errf = h.Manager.AddLocations(ctx, userID, data)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, nil)
+}
+
+func (h *ManagerHandler) AccDetails(ctx *gin.Context) {
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	accDetails, errf := h.Manager.AccDetails(ctx, userID)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, accDetails)
+}
+
+func (h *ManagerHandler) AccBilling(ctx *gin.Context) {
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	accBilling, errf := h.Manager.AccBilling(ctx, userID)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, accBilling)
+}
+
+func (h *ManagerHandler) AccProjects(ctx *gin.Context) {
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	accProjects, errf := h.Manager.AccProjects(ctx, userID)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, accProjects)
+}
+
+func (h *ManagerHandler) AccSettings(ctx *gin.Context) {
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	accSettings, errf := h.Manager.AccSettings(ctx, userID)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, accSettings)
+}
+
+func (h *ManagerHandler) AccSettingsUpdate(ctx *gin.Context) {
+
+	data := new(dto.AccSettingsResp)
+	err := ctx.Bind(data)
+	if err != nil {
+		fmt.Println(err)
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrInvalidFormat,
+			Message:   "Missing or invalid form format.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	errf = h.Manager.AccSettingsUpdate(ctx, data, userID)
+	if errf != nil {
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			fmt.Println(errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "New lake registered successfully.",
-		"buckets": buckets,
+		"Message": "Settings updated.",
 	})
 }
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 func (h *ManagerHandler) AnalyzeLake(ctx *gin.Context) {
 
@@ -52,7 +213,7 @@ func (h *ManagerHandler) AnalyzeLake(ctx *gin.Context) {
 		return
 	}
 
-	userID, errf := h.extractUserID(ctx)
+	userID, errf := h.getUserID(ctx)
 	if errf != nil {
 		ctx.JSON(http.StatusBadRequest, errf)
 		return

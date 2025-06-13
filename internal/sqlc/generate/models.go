@@ -17,6 +17,15 @@ type Credential struct {
 	Region    string
 }
 
+type Epauth struct {
+	AuthID   int64
+	UserID   int64
+	Email    string
+	Password string
+	Name     pgtype.Text
+	Picture  pgtype.Text
+}
+
 type Goauth struct {
 	AuthID  int64
 	UserID  int64
@@ -43,11 +52,25 @@ type Location struct {
 	UserID     int64
 }
 
+type Setting struct {
+	SetID       int64
+	UserID      int64
+	LastUpdated pgtype.Timestamptz
+	Advmeta     bool
+	Cmptview    bool
+	Rfrshint    int16
+	Notif       bool
+	Theme       string
+	Fontsz      int16
+	Tooltps     bool
+	Shortcuts   bool
+}
+
 type User struct {
 	UserID    int64
 	Email     string
-	Password  string
 	Confirmed bool
 	CreatedAt pgtype.Timestamptz
 	UserUuid  pgtype.UUID
+	AuthType  interface{}
 }

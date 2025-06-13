@@ -60,6 +60,8 @@ type EPassAuth struct {
 	Email         string `json:"email"`
 	Password      string `json:"password"`
 	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
 }
 
 type UserCreds struct {
@@ -89,6 +91,21 @@ type NewLakeAzure struct {
 type NewLakeGCP struct {
 	// TODO:
 }
+
+
+type NewLakeResp struct {
+	Name *string
+	CreationDate *time.Time
+	Region *string
+}
+
+
+type AddLocsReq struct {
+	LakeName string
+	LocNames []string
+}
+
+
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // User Responses

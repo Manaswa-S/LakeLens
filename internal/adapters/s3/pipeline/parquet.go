@@ -28,7 +28,7 @@ func HandleParquet(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket
 		}
 	}
 
-	limit := configs.ParquetFilesLimit
+	limit := configs.Extras.ParquetFilesLimit
 	latestUpdate := time.Time{}
 
 	for _, obj := range resp.Contents {

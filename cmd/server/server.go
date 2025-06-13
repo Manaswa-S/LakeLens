@@ -4,12 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"lakelens/cmd/db"
+	"lakelens/cmd/errpipe"
 	"lakelens/internal/auth"
+	configs "lakelens/internal/config"
 	"lakelens/internal/consts"
 	iceberghdlr "lakelens/internal/handlers/iceberg"
 	managerhdlr "lakelens/internal/handlers/manager"
 	publichdlr "lakelens/internal/handlers/public"
 	"lakelens/internal/middlewares"
+	"lakelens/internal/notifications/mailer"
 	icebergserv "lakelens/internal/services/iceberg"
 	managersrvc "lakelens/internal/services/manager"
 	publicsrvc "lakelens/internal/services/public"
@@ -58,6 +61,24 @@ func InitHTTPServer(ds *db.DataStore) error {
 }
 
 func initRoutes(router *gin.Engine, ds *db.DataStore) error {
+
+	// < Init Request logger middleware directly on router.
+	requestsLoggerFile, err := os.OpenFile(configs.Paths.RequestLoggerFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	router.Use(middlewares.Logger(requestsLoggerFile))
+	// >
+
+	// < Init the error handler.
+
+	errPro, err := getErrProcessor()
+	if err != nil {
+		return err
+	}
+	errPro.ProcessErrors()
+
+	// >
 
 	// TODO:
 	pool := ds.PgPool
@@ -114,8 +135,16 @@ func initRoutes(router *gin.Engine, ds *db.DataStore) error {
 	}
 	// >
 
+	// < Mailer
+	mailer, err := getMailer()
+	if err != nil {
+		return err
+	}
+	mailer.RetryErrored()
+	// >
+
 	// < Public
-	publicService := publicsrvc.NewPublicService(queries, redis, pool, goConf, authService)
+	publicService := publicsrvc.NewPublicService(queries, redis, pool, goConf, authService, mailer)
 	publicHdlr := publichdlr.NewPublicHandler(publicService)
 	publicHdlr.RegisterRoutes(publicGrp)
 	// >
@@ -163,4 +192,66 @@ func getGOAuthConf() (*oauth2.Config, error) {
 	}
 
 	return conf, nil
+}
+
+func getMailer() (*mailer.EmailService, error) {
+
+	uname, exists := os.LookupEnv("Google_SMTP_Uname")
+	if !exists {
+		return nil, errors.New("google smtp username not found in env")
+	}
+	pass, exists := os.LookupEnv("Google_SMTP_Pass")
+	if !exists {
+		return nil, errors.New("google smtp pass not found in env")
+	}
+	host, exists := os.LookupEnv("Google_SMTP_Host")
+	if !exists {
+		return nil, errors.New("google smtp host not found in env")
+	}
+	hostAddr, exists := os.LookupEnv("Google_SMTP_HostAddr")
+	if !exists {
+		return nil, errors.New("google smtp host address not found in env")
+	}
+	from, exists := os.LookupEnv("Google_SMTP_From")
+	if !exists {
+		return nil, errors.New("google smtp from not found in env")
+	}
+
+	cfg := mailer.SMTPConfig{
+		Username: uname,
+		Password: pass,
+		Host:     host,
+		HostAddr: hostAddr,
+		From:     from,
+	}
+	gmail := mailer.NewGmailMailer(cfg)
+
+	var m mailer.Mailer = gmail
+	emailServ := mailer.NewEmailService(m)
+
+	return emailServ, nil
+}
+
+func getErrProcessor() (*errpipe.ErrorProcessor, error) {
+
+	telegramBotToken, exists := os.LookupEnv("Telegram_Bot_Token")
+	if !exists || telegramBotToken == "" {
+		return nil, errors.New("Telegram_Bot_Token not found or is empty string")
+	}
+
+	telegramChatID, exists := os.LookupEnv("Telegram_Chat_ID")
+	if !exists || telegramChatID == "" {
+		return nil, errors.New("Telegram_Chat_ID not found or is empty string")
+	}
+
+	teleHandler, err := errpipe.NewTelegramErrorHandler(telegramBotToken, telegramChatID)
+	if err != nil {
+		return nil, err
+	}
+
+	var ep errpipe.ErrorHandler = teleHandler
+	errProcessor := errpipe.NewErrorProcessor(ep)
+
+	return errProcessor, nil
+
 }

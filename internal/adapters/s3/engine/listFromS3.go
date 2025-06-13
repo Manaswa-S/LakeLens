@@ -179,7 +179,7 @@ func DetermineTableType(ctx *gin.Context, client *s3.Client, newBucket *dto.NewB
 func DetermineTableTypeBFS(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) (*errs.Errorf, bool) {
 
 	queue := []string{""}
-	maxDepth := configs.DetermineTableTypeMaxDepth
+	maxDepth := configs.Extras.DetermineTableTypeMaxDepth
 	subQueue := []string{}
 
 	for maxDepth > 0 && len(queue) > 0 {

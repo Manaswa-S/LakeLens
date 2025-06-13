@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"lakelens/internal/auth"
 	configs "lakelens/internal/config"
+	"lakelens/internal/consts"
 	"lakelens/internal/consts/errs"
 	"lakelens/internal/dto"
+	"lakelens/internal/notifications/mailer"
 	sqlc "lakelens/internal/sqlc/generate"
 	utils "lakelens/internal/utils/common"
-	"lakelens/internal/utils/common/emails"
 	"os"
 	"strconv"
 	"time"
@@ -31,15 +32,19 @@ type PublicService struct {
 
 	GOAuth     *oauth2.Config
 	AuthClient *auth.AuthService
+
+	EmailService *mailer.EmailService
 }
 
-func NewPublicService(queries *sqlc.Queries, redis *redis.Client, db *pgxpool.Pool, goauth *oauth2.Config, auth *auth.AuthService) *PublicService {
+func NewPublicService(queries *sqlc.Queries, redis *redis.Client, db *pgxpool.Pool, goauth *oauth2.Config,
+	auth *auth.AuthService, email *mailer.EmailService) *PublicService {
 	return &PublicService{
-		Queries:     queries,
-		RedisClient: redis,
-		DB:          db,
-		GOAuth:      goauth,
-		AuthClient:  auth,
+		Queries:      queries,
+		RedisClient:  redis,
+		DB:           db,
+		GOAuth:       goauth,
+		AuthClient:   auth,
+		EmailService: email,
 	}
 }
 
@@ -76,15 +81,17 @@ func (s *PublicService) timeSinceuuidv7(uidStr string) (int64, error) {
 		return 0, errors.New("requested uuid is not of version 7")
 	}
 	secs, _ := uid.Time().UnixTime()
-	return secs, nil
+	now := time.Now().Unix()
+	return now - secs, nil
 }
 
 func (s *PublicService) OAuthCallback(ctx *gin.Context, authData *dto.GoogleOAuthCallback) (*dto.AuthRet, *errs.Errorf) {
 
 	if authData.State != authData.CookieState {
 		return nil, &errs.Errorf{
-			Type:    errs.ErrDependencyFailed,
-			Message: "States dont match",
+			Type:      errs.ErrDependencyFailed,
+			Message:   "States dont match",
+			ReturnRaw: true,
 		}
 	}
 
@@ -96,6 +103,7 @@ func (s *PublicService) OAuthCallback(ctx *gin.Context, authData *dto.GoogleOAut
 			ReturnRaw: true,
 		}
 	}
+
 	if stateSecs >= 300 {
 		return nil, &errs.Errorf{
 			Type:      errs.ErrTokenExpired,
@@ -149,16 +157,16 @@ func (s *PublicService) AccAuth(ctx *gin.Context, creds *dto.UserCreds) (*dto.Au
 
 	userID := int64(0)
 	errf := new(errs.Errorf)
-	amt := ""
+	authMeth := ""
 
 	switch {
 
 	case creds.EPass != nil:
-		amt = configs.EPassAuth
+		authMeth = configs.Core.EPassAuth
 		userID, errf = s.epassAuth(ctx, creds.EPass)
 
 	case creds.GOAuth != nil:
-		amt = configs.GoogleOAuth
+		authMeth = configs.Core.GoogleOAuth
 		userID, errf = s.googleOAuth(ctx, creds.GOAuth)
 
 	default:
@@ -170,6 +178,14 @@ func (s *PublicService) AccAuth(ctx *gin.Context, creds *dto.UserCreds) (*dto.Au
 	}
 	if errf != nil {
 		return nil, errf
+	}
+
+	err := s.Queries.InsertNewSettings(ctx, userID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to insert new settings : " + err.Error(),
+		}
 	}
 
 	userData, err := s.Queries.GetUserData(ctx, userID)
@@ -189,7 +205,7 @@ func (s *PublicService) AccAuth(ctx *gin.Context, creds *dto.UserCreds) (*dto.Au
 		Role:       role,
 		UserID:     userID,
 		UUID:       uuid,
-		AuthMethod: amt,
+		AuthMethod: authMeth,
 	})
 	if errf != nil {
 		return nil, errf
@@ -201,7 +217,7 @@ func (s *PublicService) AccAuth(ctx *gin.Context, creds *dto.UserCreds) (*dto.Au
 		Role:       role,
 		UserID:     userID,
 		UUID:       uuid,
-		AuthMethod: amt,
+		AuthMethod: authMeth,
 	})
 	if errf != nil {
 		return nil, errf
@@ -233,7 +249,7 @@ func (s *PublicService) epassAuth(ctx *gin.Context, epass *dto.EPassAuth) (int64
 
 	if newUser {
 
-		passHash, err := bcrypt.GenerateFromPassword([]byte(epass.Password), configs.Internal.BcryptPasswordCost)
+		passHash, err := bcrypt.GenerateFromPassword([]byte(epass.Password), configs.Core.BcryptPasswordCost)
 		if err != nil {
 			return 0, &errs.Errorf{
 				Type:    errs.ErrInternalServer,
@@ -241,9 +257,11 @@ func (s *PublicService) epassAuth(ctx *gin.Context, epass *dto.EPassAuth) (int64
 			}
 		}
 
+		// TODO: this should be a txn
+
 		userID, err := s.Queries.InsertNewUser(ctx, sqlc.InsertNewUserParams{
 			Email:    epass.Email,
-			Password: string(passHash),
+			AuthType: consts.EPassAuth,
 		})
 		if err != nil {
 			return 0, &errs.Errorf{
@@ -252,10 +270,32 @@ func (s *PublicService) epassAuth(ctx *gin.Context, epass *dto.EPassAuth) (int64
 			}
 		}
 
+		err = s.Queries.InsertNewEPAuth(ctx, sqlc.InsertNewEPAuthParams{
+			UserID:   userID,
+			Email:    epass.Email,
+			Password: string(passHash),
+			Name:     pgtype.Text{String: epass.Name, Valid: true},
+			Picture:  pgtype.Text{String: epass.Picture, Valid: true},
+		})
+		if err != nil {
+			return 0, &errs.Errorf{
+				Type:    errs.ErrDBQuery,
+				Message: "Failed to insert new user into epauth : " + err.Error(),
+			}
+		}
+
 		return userID, nil
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(userData.Password), []byte(epass.Password))
+	passHash, err := s.Queries.GetEPAuthPass(ctx, userData.UserID)
+	if err != nil {
+		return 0, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get epauth password : " + err.Error(),
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(passHash), []byte(epass.Password))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
 			return 0, &errs.Errorf{
@@ -292,7 +332,7 @@ func (s *PublicService) googleOAuth(ctx *gin.Context, goauth *dto.GoogleOAuth) (
 
 		userID, err := s.Queries.InsertNewUser(ctx, sqlc.InsertNewUserParams{
 			Email:    goauth.Email,
-			Password: string(""),
+			AuthType: consts.GoogleOAuth,
 		})
 		if err != nil {
 			return 0, &errs.Errorf{
@@ -329,7 +369,7 @@ func (s *PublicService) googleOAuth(ctx *gin.Context, goauth *dto.GoogleOAuth) (
 	if gData.Email != goauth.Email || gData.ID.String != goauth.Id {
 		return 0, &errs.Errorf{
 			Type:      errs.ErrConflict,
-			Message:   "Credential fail to match.",
+			Message:   "Credentials fail to match.",
 			ReturnRaw: true,
 		}
 	}
@@ -388,6 +428,8 @@ func (s *PublicService) AuthCheck(ctx *gin.Context, t_acc string) (*dto.AuthChec
 		}
 	}
 
+	// TODO: ?? Do this
+
 	return &dto.AuthCheckRet{
 		Name:      "UName",
 		Picture:   "https://lh3.googleusercontent.com/a/ACg8ocIEGbv1m0cOz2_T9vIUSoK3Fpkoo5n-KSZnR89B1_TdNJ_j8g=s96-c",
@@ -406,7 +448,7 @@ func (s *PublicService) ForgotPass(ctx *gin.Context, data *dto.ForgotPassReq) *e
 		}
 	}
 
-	userID, err := s.Queries.CheckIfEPassOnly(ctx, data.Email)
+	userID, err := s.Queries.CheckIfEPAuth(ctx, data.Email)
 	if err != nil {
 		// if not return silently, dont confirm to user
 		if err.Error() == errs.PGErrNoRowsFound {
@@ -446,9 +488,7 @@ func (s *PublicService) ForgotPass(ctx *gin.Context, data *dto.ForgotPassReq) *e
 	fpath := "/account/reset-pass?token="
 
 	link := fmt.Sprintf("%s%s%s", fendBase, fpath, token)
-	fmt.Println(link)
-	// works async, with inbuilt retry mechanism
-	emails.ResetPassEmail(link, data.Email)
+	go s.EmailService.SendResetPassEmail(link, data.Email)
 
 	return nil
 }
@@ -526,7 +566,7 @@ func (s *PublicService) ResetPass(ctx *gin.Context, data *dto.ResetPassReq) *err
 		}
 	}
 
-	currPass, err := s.Queries.GetPassForUserID(ctx, userID)
+	currPass, err := s.Queries.GetEPAuthPass(ctx, userID)
 	if err != nil {
 		return &errs.Errorf{
 			Type:    errs.ErrDependencyFailed,
@@ -557,7 +597,7 @@ func (s *PublicService) ResetPass(ctx *gin.Context, data *dto.ResetPassReq) *err
 		}
 	}
 
-	pass, err := bcrypt.GenerateFromPassword([]byte(data.ConfPass), configs.Internal.BcryptPasswordCost)
+	newPassHash, err := bcrypt.GenerateFromPassword([]byte(data.ConfPass), configs.Core.BcryptPasswordCost)
 	if err != nil {
 		return &errs.Errorf{
 			Type:    errs.ErrInternalServer,
@@ -567,7 +607,7 @@ func (s *PublicService) ResetPass(ctx *gin.Context, data *dto.ResetPassReq) *err
 
 	err = s.Queries.UpdatePass(ctx, sqlc.UpdatePassParams{
 		UserID:   userID,
-		Password: string(pass),
+		Password: string(newPassHash),
 	})
 	if err != nil {
 		return &errs.Errorf{
