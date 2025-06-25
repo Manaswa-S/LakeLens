@@ -26,30 +26,52 @@ func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 	routegrp.GET("/account/settings", h.AccSettings)
 	routegrp.PATCH("/account/settings/update", h.AccSettingsUpdate)
 
-
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 	routegrp.GET("/search/choices", h.GetSearchChoices)
 
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+	// posts a new lake form
+	routegrp.POST("/newlake", h.RegisterNewLake)
+	// gets the locations for user given the lake id, if any.
+	routegrp.GET("/getlocs/:lakeid", h.GetLocations)
+	// posts the new locations to be added to an existing lake
+	routegrp.POST("/addlocs", h.AddLocations)
+
+	// deletes a lake, give the lakeid.
+	routegrp.DELETE("/lake/:lakeid", h.DeleteLake)
+	// deletes a location, give the location id.
+	routegrp.DELETE("/loc/:locid", h.DeleteLoc)
+
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+	routegrp.GET("/lake/details/:lakeid", h.GetLakeDetails)
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
-	// posts a new lake form
-	// uses dto.NewLake
-	routegrp.POST("/newlake", h.RegisterNewLake)
+	routegrp.GET("/meta/file-dist/:lakeid", h.GetLakeFileDist)
+	routegrp.GET("/meta/bucs-check/:lakeid", h.GetAllBucsChecks)
 
-	routegrp.POST("/addlocs", h.AddLocations)
+
+
+
+
+	// routegrp.GET("/meta/init-data", h.GetInitData)
+
+
+
+
+
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 	// starts analyzing requested lake, lake should obv be already registered
 	routegrp.GET("/analyze/:lakeid", h.AnalyzeLake)
-
 	// starts analyzing requested lake, lake should obv be already registered
-	routegrp.GET("/analyze/:lakeid/:locid", h.AnalyzeLoc)
-
+	routegrp.GET("/analyze/loc/:locid", h.AnalyzeLoc)
 	// returns the entire report of a location
 	routegrp.GET("/fetch/:lakeid/:locid", h.FetchLocation)
-
 }
 
 // extractUserID extracts the user ID and other required parameters from the context with explicit type assertion.

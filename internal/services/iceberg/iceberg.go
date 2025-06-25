@@ -93,52 +93,116 @@ func (s *IcebergService) fetchCache(ctx *gin.Context, userID int64, locid string
 	}
 
 	return cache, nil
-
 }
 
-func (s *IcebergService) AllData(ctx *gin.Context, userID int64, locid string) (*dto.IsIceberg, *errs.Errorf) {
+func (s *IcebergService) GetOverviewData(ctx *gin.Context, userID int64, locid string) (*dto.OverviewData, *errs.Errorf) {
 
 	cache, errf := s.fetchCache(ctx, userID, locid)
 	if errf != nil {
 		return nil, errf
 	}
 
-	return &cache.Bucket.Iceberg, nil
+	fileURIs := make(map[string]string, 0)
+	if len(cache.Bucket.Iceberg.MetadataFPaths) > 0 {
+		fileURIs["Metadata File"] = cache.Bucket.Iceberg.MetadataFPaths[len(cache.Bucket.Iceberg.MetadataFPaths)-1]
+	}
+	if len(cache.Bucket.Iceberg.SnapshotFPaths) > 0 {
+		fileURIs["Snapshot File"] = cache.Bucket.Iceberg.SnapshotFPaths[len(cache.Bucket.Iceberg.SnapshotFPaths)-1]
+	}
+	if len(cache.Bucket.Iceberg.ManifestFPaths) > 0 {
+		fileURIs["Manifest File"] = cache.Bucket.Iceberg.ManifestFPaths[len(cache.Bucket.Iceberg.ManifestFPaths)-1]
+	}
+
+	// cache.Bucket.Iceberg.Snapshot.SnapshotRecords[0].AddedRowsCount
+
+	return &dto.OverviewData{
+		URI:         cache.Bucket.Iceberg.URI,
+		FilesReadMp: map[string]int64{},
+		TableType:   cache.Bucket.Data.TableType,
+		FileURIs:    fileURIs,
+	}, nil
 }
 
-func (s *IcebergService) Metadata(ctx *gin.Context, userID int64, locid string) (*dto.IcebergMetadata, *errs.Errorf) {
+func (s *IcebergService) GetOverviewStats(ctx *gin.Context, userID int64, locid string) (*dto.OverviewStats, *errs.Errorf) {
 
 	cache, errf := s.fetchCache(ctx, userID, locid)
 	if errf != nil {
 		return nil, errf
 	}
 
-	return cache.Bucket.Iceberg.Metadata, nil
+	latestSnap := cache.Bucket.Iceberg.Metadata.Snapshots[len(cache.Bucket.Iceberg.Metadata.Snapshots)-1]
+	snapSummary := latestSnap.Summary
+
+	addrecs, _ := strconv.ParseInt(snapSummary.AddedRecords, 10, 64)
+	addposdels, _ := strconv.ParseInt(snapSummary.AddedPositionDeletes, 10, 64)
+	addeqdels, _ := strconv.ParseInt(snapSummary.AddedEqualityDeletes, 10, 64)
+
+	delta := addrecs - addposdels - addeqdels
+
+	totSize, _ := strconv.ParseInt(snapSummary.TotalFilesSize, 10, 64)
+	totDataFiles, _ := strconv.ParseInt(snapSummary.TotalDataFiles, 10, 64)
+	avgFileSize := totSize / totDataFiles
+
+	return &dto.OverviewStats{
+		Table: dto.OverviewStatsTable{
+			TableType:    cache.Bucket.Data.TableType,
+			TableVersion: cache.Bucket.Iceberg.Metadata.FormatVersion,
+		},
+		Rows: dto.OverviewStatsRowCount{
+			TotalCount: snapSummary.TotalRecords,
+			DeltaCount: delta,
+		},
+		Version: dto.OverviewStatsVersion{
+			CurrentVersion: strconv.FormatInt(cache.Bucket.Iceberg.Metadata.CurrentSnapshotID, 10),
+			LastSnapshot:   latestSnap.TimestampMS,
+			TotalSnapshots: latestSnap.SequenceNumber,
+		},
+		Storage: dto.OverviewStatsStorage{
+			TotalSize:      totSize,
+			TotalDataFiles: totDataFiles,
+			AvgFileSize:    avgFileSize,
+		},
+	}, nil
 }
 
-func (s *IcebergService) Snapshot(ctx *gin.Context, userID int64, locid string) (*dto.IcebergSnapshot, *errs.Errorf) {
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-	cache, errf := s.fetchCache(ctx, userID, locid)
-	if errf != nil {
-		return nil, errf
-	}
+// func (s *IcebergService) AllData(ctx *gin.Context, userID int64, locid string) (*dto.IsIceberg, *errs.Errorf) {
 
-	return cache.Bucket.Iceberg.Snapshot, nil
-}
+// 	cache, errf := s.fetchCache(ctx, userID, locid)
+// 	if errf != nil {
+// 		return nil, errf
+// 	}
 
-func (s *IcebergService) Manifest(ctx *gin.Context, userID int64, locid string) ([]*dto.IcebergManifest, *errs.Errorf) {
+// 	return &cache.Bucket.Iceberg, nil
+// }
 
-	cache, errf := s.fetchCache(ctx, userID, locid)
-	if errf != nil {
-		return nil, errf
-	}
+// func (s *IcebergService) Metadata(ctx *gin.Context, userID int64, locid string) (*dto.IcebergMetadata, *errs.Errorf) {
 
-	return cache.Bucket.Iceberg.Manifest, nil
-}
+// 	cache, errf := s.fetchCache(ctx, userID, locid)
+// 	if errf != nil {
+// 		return nil, errf
+// 	}
 
+// 	return cache.Bucket.Iceberg.Metadata, nil
+// }
 
+// func (s *IcebergService) Snapshot(ctx *gin.Context, userID int64, locid string) (*dto.IcebergSnapshot, *errs.Errorf) {
 
+// 	cache, errf := s.fetchCache(ctx, userID, locid)
+// 	if errf != nil {
+// 		return nil, errf
+// 	}
 
+// 	return cache.Bucket.Iceberg.Snapshot, nil
+// }
 
+// func (s *IcebergService) Manifest(ctx *gin.Context, userID int64, locid string) ([]*dto.IcebergManifest, *errs.Errorf) {
 
+// 	cache, errf := s.fetchCache(ctx, userID, locid)
+// 	if errf != nil {
+// 		return nil, errf
+// 	}
 
+// 	return cache.Bucket.Iceberg.Manifest, nil
+// }

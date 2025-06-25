@@ -60,6 +60,40 @@ func (q *Queries) CheckIfEPAuth(ctx context.Context, email string) (int64, error
 	return auth_id, err
 }
 
+const deleteLake = `-- name: DeleteLake :exec
+DELETE 
+FROM lakes
+WHERE lakes.lake_id = $2
+AND lakes.user_id = $1
+`
+
+type DeleteLakeParams struct {
+	UserID int64
+	LakeID int64
+}
+
+func (q *Queries) DeleteLake(ctx context.Context, arg DeleteLakeParams) error {
+	_, err := q.db.Exec(ctx, deleteLake, arg.UserID, arg.LakeID)
+	return err
+}
+
+const deleteLoc = `-- name: DeleteLoc :exec
+DELETE
+FROM locations
+WHERE locations.loc_id = $2
+AND locations.user_id = $1
+`
+
+type DeleteLocParams struct {
+	UserID int64
+	LocID  int64
+}
+
+func (q *Queries) DeleteLoc(ctx context.Context, arg DeleteLocParams) error {
+	_, err := q.db.Exec(ctx, deleteLoc, arg.UserID, arg.LocID)
+	return err
+}
+
 const getEPAuthPass = `-- name: GetEPAuthPass :one
 SELECT
     epauth.password
@@ -157,6 +191,44 @@ func (q *Queries) GetGoogleID(ctx context.Context, userID int64) (GetGoogleIDRow
 	return i, err
 }
 
+const getLakeDataForUserID = `-- name: GetLakeDataForUserID :one
+SELECT 
+    lakes.user_id,
+    lakes.name,
+    lakes.region,
+    lakes.ptype,
+    lakes.created_at
+FROM lakes 
+WHERE lakes.lake_id = $2
+AND lakes.user_id = $1
+`
+
+type GetLakeDataForUserIDParams struct {
+	UserID int64
+	LakeID int64
+}
+
+type GetLakeDataForUserIDRow struct {
+	UserID    int64
+	Name      string
+	Region    string
+	Ptype     string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetLakeDataForUserID(ctx context.Context, arg GetLakeDataForUserIDParams) (GetLakeDataForUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getLakeDataForUserID, arg.UserID, arg.LakeID)
+	var i GetLakeDataForUserIDRow
+	err := row.Scan(
+		&i.UserID,
+		&i.Name,
+		&i.Region,
+		&i.Ptype,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLakesList = `-- name: GetLakesList :many
 SELECT
     lakes.lake_id,
@@ -234,6 +306,47 @@ func (q *Queries) GetLocsList(ctx context.Context, userID int64) ([]GetLocsListR
 			&i.BucketName,
 			&i.LakeID,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLocsListForLake = `-- name: GetLocsListForLake :many
+SELECT
+    locations.loc_id,
+    locations.created_at,
+    locations.bucket_name
+FROM locations
+WHERE locations.user_id = $1 
+AND locations.lake_id = $2
+`
+
+type GetLocsListForLakeParams struct {
+	UserID int64
+	LakeID int64
+}
+
+type GetLocsListForLakeRow struct {
+	LocID      int64
+	CreatedAt  pgtype.Timestamptz
+	BucketName string
+}
+
+func (q *Queries) GetLocsListForLake(ctx context.Context, arg GetLocsListForLakeParams) ([]GetLocsListForLakeRow, error) {
+	rows, err := q.db.Query(ctx, getLocsListForLake, arg.UserID, arg.LakeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLocsListForLakeRow
+	for rows.Next() {
+		var i GetLocsListForLakeRow
+		if err := rows.Scan(&i.LocID, &i.CreatedAt, &i.BucketName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -379,6 +492,24 @@ func (q *Queries) InsertNewGOAuth(ctx context.Context, arg InsertNewGOAuthParams
 		arg.ID,
 	)
 	return err
+}
+
+const insertNewScan = `-- name: InsertNewScan :one
+INSERT INTO scans (lake_id, loc_id)
+VALUES ($1, $2)
+RETURNING scan_id
+`
+
+type InsertNewScanParams struct {
+	LakeID int64
+	LocID  int64
+}
+
+func (q *Queries) InsertNewScan(ctx context.Context, arg InsertNewScanParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertNewScan, arg.LakeID, arg.LocID)
+	var scan_id int64
+	err := row.Scan(&scan_id)
+	return scan_id, err
 }
 
 const insertNewSettings = `-- name: InsertNewSettings :exec

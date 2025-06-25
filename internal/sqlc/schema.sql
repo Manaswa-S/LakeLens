@@ -69,6 +69,23 @@ CREATE TABLE IF NOT EXISTS public.settings
         NOT VALID
 );
 
+CREATE TABLE IF NOT EXISTS public.scans
+(
+    scan_id bigint NOT NULL DEFAULT nextval('scans_scan_id_seq'::regclass),
+    lake_id bigint NOT NULL,
+    loc_id bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT scans_pkey PRIMARY KEY (scan_id),
+    CONSTRAINT lakes_scans_lake_id FOREIGN KEY (lake_id)
+        REFERENCES public.lakes (lake_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT locs_scans_loc_id FOREIGN KEY (loc_id)
+        REFERENCES public.locations (loc_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
 
 CREATE TABLE IF NOT EXISTS public.lakes
 (

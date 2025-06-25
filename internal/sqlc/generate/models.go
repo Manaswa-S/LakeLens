@@ -52,6 +52,13 @@ type Location struct {
 	UserID     int64
 }
 
+type Scan struct {
+	ScanID    int64
+	LakeID    int64
+	LocID     int64
+	CreatedAt pgtype.Timestamptz
+}
+
 type Setting struct {
 	SetID       int64
 	UserID      int64

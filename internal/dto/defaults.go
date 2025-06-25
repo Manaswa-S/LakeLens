@@ -2,6 +2,8 @@ package dto
 
 import "time"
 
+// These are structs that are intended to be put out to the user.
+
 type RequestLogData struct {
 	StartTime     string `json:"starttime"`
 	ClientIP      string `json:"clientip"`
@@ -68,12 +70,119 @@ type AccSettingsResp struct {
 	KeyboardShortcuts bool
 }
 
-
-
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 
 type SearchChoice struct {
 	Label string
-	Link string
+	Link  string
+}
+
+type LakeDetails struct {
+	Details   *LakeResp
+	Locations []*LocResp
+}
+
+type LakeFileDistStats struct {
+	TotalSize int64
+	FileCount int64
+}
+
+type LakeFileDist struct {
+	Dist map[string]*LakeFileDistStats
+}
+
+
+type LocCheckResp struct {
+	LocID int64
+	BucketName string
+	AuthCheck bool
+	PolicyCheck bool
+	ReadCheck bool
+	WriteCheck bool
+}
+
+
+type NewLake struct {
+	Name string // the lake project name, whatever the user wants.
+
+	// only one is valid, others remain nil.
+	S3    *NewLakeS3
+	Azure *NewLakeAzure
+	GCP   *NewLakeGCP
+}
+
+type NewLakeS3 struct {
+	AccessID   string
+	AccessKey  string
+	LakeRegion string
+}
+
+type NewLakeAzure struct {
+	// TODO:
+}
+
+type NewLakeGCP struct {
+	// TODO:
+}
+
+type NewLakeResp struct {
+	LakeID    int64
+	Locations []Locations
+}
+
+type AddLocsReq struct {
+	LakeID   int64
+	LocNames []string
+}
+
+type AddLocsResp struct {
+	Failed []string
+	Added  []string
+}
+
+type Locations struct { // use of this is discouraged. use LocResp instead.
+	Name         *string
+	CreationDate *time.Time
+	Region       *string
+	Registered   bool // is set to true if location is already registered.
+}
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+type OverviewData struct {
+	URI         string            // the uri where the table was found.
+	FilesReadMp map[string]int64  // the kind and number of files read.
+	TableType   string            // the table type that was detected.
+	FileURIs    map[string]string // the uris' of things like metadata files, snapshots, etc.
+}
+
+type OverviewStatsTable struct {
+	TableType    string // the table type, iceberg/delta/etc
+	TableVersion any    // the version of the table
+	TableSpecs   string // the specs of the table
+}
+
+type OverviewStatsVersion struct {
+	CurrentVersion string
+	LastSnapshot   int64
+	TotalSnapshots int64
+}
+
+type OverviewStatsRowCount struct {
+	TotalCount string
+	DeltaCount int64
+}
+
+type OverviewStatsStorage struct {
+	TotalSize      int64
+	TotalDataFiles int64
+	AvgFileSize    int64
+}
+
+type OverviewStats struct {
+	Table   OverviewStatsTable
+	Version OverviewStatsVersion
+	Rows    OverviewStatsRowCount
+	Storage OverviewStatsStorage
 }

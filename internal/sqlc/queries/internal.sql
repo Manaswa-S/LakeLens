@@ -4,9 +4,14 @@ INSERT INTO lakes (user_id, name, region, ptype)
 VALUES ($1, $2, $3, $4)
 RETURNING lake_id;
 
+-- name: InsertNewLocation :exec
+INSERT INTO locations (lake_id, bucket_name, user_id)
+VALUES ($1, $2, $3);
+
 
 -- name: GetLakeData :one
 SELECT 
+    lakes.user_id,
     lakes.name,
     lakes.region,
     lakes.ptype
@@ -37,3 +42,8 @@ SELECT
     credentials.region
 FROM credentials 
 WHERE lake_id = $1; 
+
+-- name: DeleteCreds :exec
+DELETE 
+FROM credentials
+WHERE credentials.lake_id = $1;

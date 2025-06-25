@@ -88,6 +88,8 @@ func NewAuthService(creds *AuthServCreds,
 	}
 }
 
+// TODO: we are not refreshing RTs' anywhere ????
+
 func (s *AuthService) RefreshAT(rtjwt *RTJWT) (string, *errs.Errorf) {
 
 	key := fmt.Sprintf("signrt_ver_%d", rtjwt.UserID)

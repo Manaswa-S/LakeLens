@@ -17,6 +17,7 @@ import (
 // HandleIceberg handles downloading, reading and extraction of metadata from given bucket containing Iceberg.
 func HandleIceberg(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) (bool, *errs.Errorf) {
 
+	// TODO: paginate this
 	resp, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: &newBucket.Data.Name,
 		Prefix: &newBucket.Iceberg.URI,
@@ -100,7 +101,7 @@ func metaOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 		return errf
 	}
 
-	newBucket.Iceberg.Metadata = iceutils.CleanMetadata(metadata)
+	newBucket.Iceberg.Metadata = metadata
 
 	return nil
 }

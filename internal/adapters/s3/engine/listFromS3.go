@@ -18,7 +18,7 @@ import (
 
 // ListBuckets lists all buckets for a given client.
 func ListBuckets(ctx *gin.Context, client *s3.Client) ([]types.Bucket, error) {
-
+	// TODO: paginate this
 	response, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, err
@@ -118,8 +118,12 @@ func ScrapeLoc(ctx *gin.Context, client *s3.Client, bucket *types.Bucket) (*dto.
 		}
 	}
 
+	// b, _ := json.MarshalIndent(newBucket, "", " ")
+	// fmt.Println(string(b))
+
 	return newBucket, nil
 }
+
 
 // DetermineTableType determines/detects the table type in a given bucket by recursively listing nested folders.
 //

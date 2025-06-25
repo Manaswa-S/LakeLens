@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const deleteCreds = `-- name: DeleteCreds :exec
+DELETE 
+FROM credentials
+WHERE credentials.lake_id = $1
+`
+
+func (q *Queries) DeleteCreds(ctx context.Context, lakeID int64) error {
+	_, err := q.db.Exec(ctx, deleteCreds, lakeID)
+	return err
+}
+
 const getCredentials = `-- name: GetCredentials :one
 SELECT 
     credentials.key_id,
@@ -33,6 +44,7 @@ func (q *Queries) GetCredentials(ctx context.Context, lakeID int64) (GetCredenti
 
 const getLakeData = `-- name: GetLakeData :one
 SELECT 
+    lakes.user_id,
     lakes.name,
     lakes.region,
     lakes.ptype
@@ -41,6 +53,7 @@ WHERE lakes.lake_id = $1
 `
 
 type GetLakeDataRow struct {
+	UserID int64
 	Name   string
 	Region string
 	Ptype  string
@@ -49,7 +62,12 @@ type GetLakeDataRow struct {
 func (q *Queries) GetLakeData(ctx context.Context, lakeID int64) (GetLakeDataRow, error) {
 	row := q.db.QueryRow(ctx, getLakeData, lakeID)
 	var i GetLakeDataRow
-	err := row.Scan(&i.Name, &i.Region, &i.Ptype)
+	err := row.Scan(
+		&i.UserID,
+		&i.Name,
+		&i.Region,
+		&i.Ptype,
+	)
 	return i, err
 }
 
@@ -127,4 +145,20 @@ func (q *Queries) InsertNewLake(ctx context.Context, arg InsertNewLakeParams) (i
 	var lake_id int64
 	err := row.Scan(&lake_id)
 	return lake_id, err
+}
+
+const insertNewLocation = `-- name: InsertNewLocation :exec
+INSERT INTO locations (lake_id, bucket_name, user_id)
+VALUES ($1, $2, $3)
+`
+
+type InsertNewLocationParams struct {
+	LakeID     int64
+	BucketName string
+	UserID     int64
+}
+
+func (q *Queries) InsertNewLocation(ctx context.Context, arg InsertNewLocationParams) error {
+	_, err := q.db.Exec(ctx, insertNewLocation, arg.LakeID, arg.BucketName, arg.UserID)
+	return err
 }

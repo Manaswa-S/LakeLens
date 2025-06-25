@@ -47,9 +47,9 @@ func logOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *errs
 
 	slices.Sort(newBucket.Delta.LogFPaths)
 	deltaMetaFilesLimit := 3
-	
+
 	for i := len(newBucket.Delta.LogFPaths) - 1; i >= 0; i-- {
-		
+
 		fPath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Delta.LogFPaths[i])
 		if errf != nil {
 			return errf
@@ -62,9 +62,9 @@ func logOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *errs
 
 		if log.Metadata.SchemaString != "" {
 
-			meta := deltautils.CleanMetadata(log)
-			newBucket.Delta.Metadata = append([]*dto.DeltaMetaData{meta}, newBucket.Delta.Metadata...)
-			
+			newBucket.Delta.Log = append(newBucket.Delta.Log, log)
+			// newBucket.Delta.Log = append([]*formats.DeltaMetadata{meta}, newBucket.Delta.Log...)
+
 			deltaMetaFilesLimit--
 			if deltaMetaFilesLimit == 0 {
 				break

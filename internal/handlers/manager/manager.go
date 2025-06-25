@@ -9,72 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
-
-	data := new(dto.NewLake)
-	err := ctx.Bind(data)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errs.Errorf{
-			Type:      errs.ErrBadForm,
-			Message:   "Missing or invalid form format.",
-			ReturnRaw: true,
-		})
-		return
-	}
-
-	userID, errf := h.getUserID(ctx)
-	if errf != nil {
-		ctx.JSON(http.StatusBadRequest, errf)
-		return
-	}
-
-	buckets, errf := h.Manager.RegisterNewLake(ctx, userID, data)
-	if errf != nil {
-		fmt.Println(errf.Message)
-		if errf.ReturnRaw {
-			ctx.JSON(http.StatusBadRequest, errf)
-		} else {
-			ctx.Set("error", errf.Message)
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, buckets)
-}
-
-func (h *ManagerHandler) AddLocations(ctx *gin.Context) {
-
-	data := new(dto.AddLocsReq)
-	err := ctx.Bind(data)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, errs.Errorf{
-			Type:      errs.ErrBadForm,
-			Message:   "Missing or invalid form format.",
-			ReturnRaw: true,
-		})
-		return
-	}
-
-	userID, errf := h.getUserID(ctx)
-	if errf != nil {
-		ctx.JSON(http.StatusBadRequest, errf)
-		return
-	}
-
-	errf = h.Manager.AddLocations(ctx, userID, data)
-	if errf != nil {
-		fmt.Println(errf.Message)
-		if errf.ReturnRaw {
-			ctx.JSON(http.StatusBadRequest, errf)
-		} else {
-			ctx.Set("error", errf.Message)
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, nil)
-}
-
 func (h *ManagerHandler) AccDetails(ctx *gin.Context) {
 
 	userID, errf := h.getUserID(ctx)
@@ -201,6 +135,281 @@ func (h *ManagerHandler) AccSettingsUpdate(ctx *gin.Context) {
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
+
+	data := new(dto.NewLake)
+	err := ctx.Bind(data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrBadForm,
+			Message:   "Missing or invalid form format.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	buckets, errf := h.Manager.RegisterNewLake(ctx, userID, data)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, buckets)
+}
+
+func (h *ManagerHandler) GetLocations(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	resp, errf := h.Manager.GetLocations(ctx, userID, lakeid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+func (h *ManagerHandler) AddLocations(ctx *gin.Context) {
+
+	data := new(dto.AddLocsReq)
+	err := ctx.Bind(data)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrBadForm,
+			Message:   "Missing or invalid form format.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	resp, errf := h.Manager.AddLocations(ctx, userID, data)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, resp)
+}
+
+func (h *ManagerHandler) DeleteLake(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	errf = h.Manager.DeleteLake(ctx, userID, lakeid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusGone, dto.GoodResp{
+		Message: "Lake deleted.",
+	})
+}
+
+func (h *ManagerHandler) DeleteLoc(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	errf = h.Manager.DeleteLoc(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusGone, dto.GoodResp{
+		Message: "Location deleted.",
+	})
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+func (h *ManagerHandler) GetLakeDetails(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	resp, errf := h.Manager.GetLakeDetails(ctx, userID, lakeid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+func (h *ManagerHandler) GetLakeFileDist(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	dist, errf := h.Manager.GetLakeFileDist(ctx, userID, lakeid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dist)
+}
+
+func (h *ManagerHandler) GetAllBucsChecks(ctx *gin.Context) {
+
+	lakeid := ctx.Param("lakeid")
+	if lakeid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	resp, errf := h.Manager.GetAllBucsChecks(ctx, userID, lakeid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 func (h *ManagerHandler) AnalyzeLake(ctx *gin.Context) {
 
 	lakeid := ctx.Param("lakeid")
@@ -239,28 +448,30 @@ func (h *ManagerHandler) AnalyzeLake(ctx *gin.Context) {
 
 func (h *ManagerHandler) AnalyzeLoc(ctx *gin.Context) {
 
-	lakeid := ctx.Param("lakeid")
-	if lakeid == "" {
-		return
-	}
-
 	locid := ctx.Param("locid")
 	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
 		return
 	}
 
-	// userID, errf := h.extractUserID(ctx)
-	// if errf != nil {
-	// 	ctx.JSON(http.StatusBadRequest, errf)
-	// 	return
-	// }
-
-	response, errf := h.Manager.AnalyzeLoc(ctx, 1, lakeid, locid)
+	userID, errf := h.getUserID(ctx)
 	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Manager.AnalyzeLoc(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
 		if errf.ReturnRaw {
 			ctx.JSON(http.StatusBadRequest, errf)
 		} else {
-			fmt.Println(errf.Message)
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
 		}
 		return
 	}

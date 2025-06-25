@@ -42,8 +42,8 @@ func ReadMetadata(filePath string) (*formats.DeltaLog, *errs.Errorf) {
 
 			case entry.Protocol != nil:
 				log.Protocol = *entry.Protocol
-			case entry.Txn != nil:
-				log.Txn = *entry.Txn
+			case entry.Transaction != nil:
+				log.Transaction = *entry.Transaction
 			case entry.Add != nil:
 				log.Add = append(log.Add, *entry.Add)
 			case entry.Remove != nil:

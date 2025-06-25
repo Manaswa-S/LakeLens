@@ -130,6 +130,16 @@ SELECT
 FROM locations
 WHERE locations.user_id = $1;
 
+-- name: GetLocsListForLake :many
+SELECT
+    locations.loc_id,
+    locations.created_at,
+    locations.bucket_name
+FROM locations
+WHERE locations.user_id = $1 
+AND locations.lake_id = $2;
+
+
 
 -- name: GetSettings :one
 SELECT
@@ -145,3 +155,37 @@ SELECT
     settings.shortcuts
 FROM settings
 WHERE settings.user_id = $1;
+
+
+
+-- name: GetLakeDataForUserID :one
+SELECT 
+    lakes.user_id,
+    lakes.name,
+    lakes.region,
+    lakes.ptype,
+    lakes.created_at
+FROM lakes 
+WHERE lakes.lake_id = $2
+AND lakes.user_id = $1;
+
+
+-- name: DeleteLake :exec
+DELETE 
+FROM lakes
+WHERE lakes.lake_id = $2
+AND lakes.user_id = $1;
+
+-- name: DeleteLoc :exec
+DELETE
+FROM locations
+WHERE locations.loc_id = $2
+AND locations.user_id = $1;
+
+
+
+
+-- name: InsertNewScan :one
+INSERT INTO scans (lake_id, loc_id)
+VALUES ($1, $2)
+RETURNING scan_id;

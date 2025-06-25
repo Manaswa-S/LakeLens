@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"lakelens/internal/consts/errs"
-	"lakelens/internal/dto"
 	formats "lakelens/internal/dto/formats/iceberg"
 	"os"
 
@@ -13,28 +12,28 @@ import (
 
 // ReadMetadata reads and Unmarshals given raw iceberg metadata file.
 // Files should strictly follow the format given under ./texts/examples .
-func ReadMetadata(filePath string) (*formats.IcebergMetadataData, *errs.Errorf) {
+func ReadMetadata(filePath string) (*formats.IcebergMetadata, *errs.Errorf) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to read iceberg metadata file : " + err.Error(),
 		}
 	}
 
 	if len(data) == 0 {
 		return nil, &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Empty iceberg metadata file : filepath = " + filePath,
 		}
 	}
 
-	iceberg := new(formats.IcebergMetadataData)
+	iceberg := new(formats.IcebergMetadata)
 	err = json.Unmarshal(data, iceberg)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrInternalServer,
+			Type:    errs.ErrInternalServer,
 			Message: "Failed to un marshal to json : " + err.Error(),
 		}
 	}
@@ -42,13 +41,12 @@ func ReadMetadata(filePath string) (*formats.IcebergMetadataData, *errs.Errorf) 
 	return iceberg, nil
 }
 
+func ReadManifest(filePath string) ([]*formats.ManifestEntry, *errs.Errorf) {
 
-func ReadManifest(filePath string) (*dto.IcebergManifest, *errs.Errorf) {
-	
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to open iceberg manifest file : " + err.Error(),
 		}
 	}
@@ -58,20 +56,19 @@ func ReadManifest(filePath string) (*dto.IcebergManifest, *errs.Errorf) {
 	ocfr, err := goavro.NewOCFReader(bfile)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrDependencyFailed,
+			Type:    errs.ErrDependencyFailed,
 			Message: "Failed to return reader for avro ocf : " + err.Error(),
 		}
 	}
 
-
 	recordMaps := make([]map[string]any, 0)
 
 	for ocfr.Scan() {
-		
+
 		datum, err := ocfr.Read()
 		if err != nil {
 			return nil, &errs.Errorf{
-				Type: errs.ErrDependencyFailed,
+				Type:    errs.ErrDependencyFailed,
 				Message: "Failed to read from avro ocf : " + err.Error(),
 			}
 		}
@@ -79,7 +76,7 @@ func ReadManifest(filePath string) (*dto.IcebergManifest, *errs.Errorf) {
 		recordMap, ok := datum.(map[string]any)
 		if !ok {
 			return nil, &errs.Errorf{
-				Type: errs.ErrDependencyFailed,
+				Type:    errs.ErrDependencyFailed,
 				Message: "Avro ocf datum isn't of expected 'map[string]any' type.",
 			}
 		}
@@ -91,13 +88,12 @@ func ReadManifest(filePath string) (*dto.IcebergManifest, *errs.Errorf) {
 	return records, nil
 }
 
+func ReadSnapshot(filePath string) ([]*formats.SnapshotRecord, *errs.Errorf) {
 
-func ReadSnapshot(filePath string) (*dto.IcebergSnapshot, *errs.Errorf) {
-	
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrStorageFailed,
+			Type:    errs.ErrStorageFailed,
 			Message: "Failed to open iceberg snapshot file : " + err.Error(),
 		}
 	}
@@ -107,7 +103,7 @@ func ReadSnapshot(filePath string) (*dto.IcebergSnapshot, *errs.Errorf) {
 	ocfr, err := goavro.NewOCFReader(bfile)
 	if err != nil {
 		return nil, &errs.Errorf{
-			Type: errs.ErrDependencyFailed,
+			Type:    errs.ErrDependencyFailed,
 			Message: "Failed to return reader for avro ocf : " + err.Error(),
 		}
 	}
@@ -115,11 +111,11 @@ func ReadSnapshot(filePath string) (*dto.IcebergSnapshot, *errs.Errorf) {
 	recordMaps := make([]map[string]any, 0)
 
 	for ocfr.Scan() {
-		
+
 		datum, err := ocfr.Read()
 		if err != nil {
 			return nil, &errs.Errorf{
-				Type: errs.ErrDependencyFailed,
+				Type:    errs.ErrDependencyFailed,
 				Message: "Failed to read from avro ocf : " + err.Error(),
 			}
 		}
@@ -127,7 +123,7 @@ func ReadSnapshot(filePath string) (*dto.IcebergSnapshot, *errs.Errorf) {
 		recordMap, ok := datum.(map[string]any)
 		if !ok {
 			return nil, &errs.Errorf{
-				Type: errs.ErrDependencyFailed,
+				Type:    errs.ErrDependencyFailed,
 				Message: "Avro ocf datum isn't of expected 'map[string]any' type.",
 			}
 		}
@@ -138,6 +134,3 @@ func ReadSnapshot(filePath string) (*dto.IcebergSnapshot, *errs.Errorf) {
 
 	return records, nil
 }
-
-
-

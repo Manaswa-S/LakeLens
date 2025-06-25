@@ -1,15 +1,47 @@
 package iceberg
 
-import "github.com/gin-gonic/gin"
+import (
+	"lakelens/internal/consts/errs"
 
+	"github.com/gin-gonic/gin"
+)
 
 func (h *IcebergHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 
-	routegrp.GET("/alldata/:lakeid/:locid", h.AllData)
+	routegrp.GET("/overview/data/:locid", h.GetOverviewData)
+	routegrp.GET("/overview/stats/:locid", h.GetOverviewStats)
 
-	routegrp.GET("/metadata/:lakeid/:locid", h.Metadata)
-	routegrp.GET("/snapshot/:lakeid/:locid", h.Snapshot)
-	routegrp.GET("/manifest/:lakeid/:locid", h.Manifest)
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+	// routegrp.GET("/alldata/:lakeid/:locid", h.AllData)
 
+	// routegrp.GET("/metadata/:lakeid/:locid", h.Metadata)
+	// routegrp.GET("/snapshot/:lakeid/:locid", h.Snapshot)
+	// routegrp.GET("/manifest/:lakeid/:locid", h.Manifest)
+
+}
+
+// extractUserID extracts the user ID and other required parameters from the context with explicit type assertion.
+// any returned error is directly included in the response as returned
+func (h *IcebergHandler) getUserID(ctx *gin.Context) (int64, *errs.Errorf) {
+
+	userid, exists := ctx.Get("rid")
+	if !exists {
+		return 0, &errs.Errorf{
+			Type:      errs.ErrInvalidCredentials,
+			Message:   "Missing user ID in request.",
+			ReturnRaw: true,
+		}
+	}
+
+	userID, ok := userid.(int64)
+	if !ok {
+		return 0, &errs.Errorf{
+			Type:      errs.ErrInvalidFormat,
+			Message:   "User ID of improper format.",
+			ReturnRaw: true,
+		}
+	}
+
+	return userID, nil
 }
