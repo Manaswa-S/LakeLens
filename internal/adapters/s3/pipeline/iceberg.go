@@ -1,14 +1,15 @@
 package pipeline
 
 import (
+	"fmt"
 	"lakelens/internal/adapters/s3/engine/fetcher"
 	"lakelens/internal/consts/errs"
 	"lakelens/internal/dto"
+	formats "lakelens/internal/dto/formats/iceberg"
 	iceutils "lakelens/internal/utils/iceberg"
 	"path"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
@@ -54,26 +55,14 @@ func HandleIceberg(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket
 
 func runOps(tasks []func() *errs.Errorf) []*errs.Errorf {
 
-	var wg sync.WaitGroup
-	errfCh := make(chan *errs.Errorf, len(tasks))
+	var errsCollected []*errs.Errorf
 
 	for _, task := range tasks {
-		wg.Add(1)
-		go func(task func() *errs.Errorf) {
-			defer wg.Done()
-			if errf := task(); errf != nil {
-				errfCh <- errf
-			}
-		}(task) // capture the loop var correctly
+		if errf := task(); errf != nil {
+			errsCollected = append(errsCollected, errf)
+		}
 	}
 
-	wg.Wait()
-	close(errfCh)
-
-	var errsCollected []*errs.Errorf
-	for errf := range errfCh {
-		errsCollected = append(errsCollected, errf)
-	}
 	return errsCollected
 }
 
@@ -91,7 +80,7 @@ func metaOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 		}
 	}
 
-	filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Iceberg.MetadataFPaths[metaLen-1])
+	filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Iceberg.MetadataFPaths[metaLen-1], "")
 	if errf != nil {
 		return errf
 	}
@@ -108,11 +97,10 @@ func metaOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 
 func snapOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *errs.Errorf {
 
-	// listobjectsv2 returns keys in sorted order tho
-	slices.Sort(newBucket.Iceberg.SnapshotFPaths)
-	snapLen := len(newBucket.Iceberg.SnapshotFPaths)
+	var snapPath string
+	snaps := newBucket.Iceberg.Metadata.Snapshots
 
-	if snapLen <= 0 {
+	if len(snaps) <= 0 {
 		return &errs.Errorf{
 			Type:      errs.ErrInvalidInput,
 			Message:   "No 'snap-*.avro' snapshot files were found.",
@@ -120,26 +108,34 @@ func snapOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 		}
 	}
 
-	filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Iceberg.SnapshotFPaths[snapLen-1])
+	currSnapID := newBucket.Iceberg.Metadata.CurrentSnapshotID
+	for _, snap := range snaps {
+		if snap.SnapshotID == currSnapID {
+			snapPath = snap.ManifestList
+			break
+		}
+	}
+
+	filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, "", snapPath)
+	if errf != nil {
+		fmt.Println(*errf)
+		return errf
+	}
+
+	snap, errf := iceutils.ReadSnapshot(filePath)
 	if errf != nil {
 		return errf
 	}
 
-	newBucket.Iceberg.Snapshot, errf = iceutils.ReadSnapshot(filePath)
-	if errf != nil {
-		return errf
-	}
+	newBucket.Iceberg.Snapshot = append(newBucket.Iceberg.Snapshot, snap)
 
 	return nil
 }
 
 func maniOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *errs.Errorf {
 
-	// listobjectsv2 returns keys in sorted order tho
-	slices.Sort(newBucket.Iceberg.ManifestFPaths)
-	maniLen := len(newBucket.Iceberg.ManifestFPaths)
-
-	if maniLen <= 0 {
+	snaps := newBucket.Iceberg.Snapshot
+	if len(snaps) <= 0 {
 		return &errs.Errorf{
 			Type:      errs.ErrInvalidInput,
 			Message:   "No '.avro' manifest files were found.",
@@ -147,9 +143,20 @@ func maniOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 		}
 	}
 
-	for _, path := range newBucket.Iceberg.ManifestFPaths {
+	snapRecords := snaps[0].Records
+	if len(snapRecords) <= 0 {
+		return &errs.Errorf{
+			Type:      errs.ErrInvalidInput,
+			Message:   "No '.avro' manifest files were found.",
+			ReturnRaw: true,
+		}
+	}
 
-		filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, path)
+	data := make([]*formats.ManifestData, 0)
+
+	for _, record := range snapRecords {
+
+		filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, "", record.ManifestPath)
 		if errf != nil {
 			return errf
 		}
@@ -158,9 +165,12 @@ func maniOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 		if errf != nil {
 			return errf
 		}
+		entries.URI = record.ManifestPath
 
-		newBucket.Iceberg.Manifest = append(newBucket.Iceberg.Manifest, entries)
+		data = append(data, entries)
 	}
+
+	newBucket.Iceberg.Manifest = append(newBucket.Iceberg.Manifest, &formats.IcebergManifest{Data: data})
 
 	return nil
 }

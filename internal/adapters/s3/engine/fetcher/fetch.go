@@ -143,7 +143,25 @@ func DownloadSingleParquetS3(ctx *gin.Context, client *s3.Client, bucketName, ur
 
 // FetchNdSave downloads the given file at {key} in bucket {bucketName} and saves it at {saveDir/bucketName/fileName}.
 // The filename is the same as in the lake.
-func FetchNdSave(ctx *gin.Context, client *s3.Client, bucketName, key string) (string, *errs.Errorf) {
+func FetchNdSave(ctx *gin.Context, client *s3.Client, bucketName, key, objFullPath string) (string, *errs.Errorf) {
+
+	if key == "" && objFullPath == "" {
+		return "", &errs.Errorf{
+			Type:    errs.ErrBadForm,
+			Message: "Object key and full path cannot be empty.",
+		}
+	}
+
+	if key == "" && objFullPath != "" {
+		var found bool
+		key, found = strings.CutPrefix(objFullPath, "s3://"+bucketName+"/")
+		if !found {
+			return "", &errs.Errorf{
+				Type:    errs.ErrBadForm,
+				Message: "The full object path does not begin with s3://",
+			}
+		}
+	}
 
 	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,

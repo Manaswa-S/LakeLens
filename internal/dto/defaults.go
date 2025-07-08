@@ -1,6 +1,8 @@
 package dto
 
-import "time"
+import (
+	"time"
+)
 
 // These are structs that are intended to be put out to the user.
 
@@ -12,6 +14,16 @@ type RequestLogData struct {
 	StatusCode    int    `json:"statuscode"`
 	InternalError string `json:"internalerror"`
 	Latency       int64  `json:"latency"` // in milliseconds
+}
+
+type TipRespHRef struct {
+	Name string `json:"name"`
+	Link string `json:"link"`
+}
+
+type TipResp struct {
+	Tip   string
+	HRefs map[string]TipRespHRef
 }
 
 type LakeResp struct {
@@ -91,16 +103,14 @@ type LakeFileDist struct {
 	Dist map[string]*LakeFileDistStats
 }
 
-
 type LocCheckResp struct {
-	LocID int64
-	BucketName string
-	AuthCheck bool
+	LocID       int64
+	BucketName  string
+	AuthCheck   bool
 	PolicyCheck bool
-	ReadCheck bool
-	WriteCheck bool
+	ReadCheck   bool
+	WriteCheck  bool
 }
-
 
 type NewLake struct {
 	Name string // the lake project name, whatever the user wants.
@@ -147,11 +157,12 @@ type Locations struct { // use of this is discouraged. use LocResp instead.
 	Registered   bool // is set to true if location is already registered.
 }
 
-
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 type OverviewData struct {
-	URI         string            // the uri where the table was found.
+	FoundAt     string // the uri where the table was found.
+	Location    string
+	TableUUID   string
 	FilesReadMp map[string]int64  // the kind and number of files read.
 	TableType   string            // the table type that was detected.
 	FileURIs    map[string]string // the uris' of things like metadata files, snapshots, etc.
@@ -185,4 +196,91 @@ type OverviewStats struct {
 	Version OverviewStatsVersion
 	Rows    OverviewStatsRowCount
 	Storage OverviewStatsStorage
+}
+
+type OverviewSchemaField struct {
+	ID       int64
+	Name     string
+	Required bool
+	Type     string
+}
+
+type OverviewSchema struct {
+	SchemaID int64
+	Fields   []*OverviewSchemaField
+}
+
+type OverviewPartitionField struct {
+	Name      string
+	Transform string
+	SourceID  int64
+	FieldID   int64
+}
+
+type OverviewPartition struct {
+	DefaultSpecID int64
+	Fields        []*OverviewPartitionField
+}
+
+type OverviewSnapshot struct {
+	SequenceNumber int64
+	LastOperation  string
+	SchemaID       int64
+	ManifestList   string
+}
+
+type OverviewGraphs struct {
+	TimeStampMS      int64
+	TotalRecords     string
+	TotalFileSize    string
+	TotalDataFiles   string
+	TotalDeleteFiles string
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+type SchemaListData struct {
+	SchemaID            int64
+	FromTimeStampMS     int64  // timestamp from when the schema was applied
+	ValidUptoSnapshotID string // snapshot id until when valid
+}
+
+type SchemaList struct {
+	List map[int64]*SchemaListData
+}
+
+type SchemaField struct {
+	ID       int64
+	Name     string
+	Required bool
+	Type     string
+}
+
+type Schema struct {
+	SchemaID int64
+	Fields   []*SchemaField
+}
+
+type SchemaData struct {
+	LastUpdatedMS    int64
+	LastColumnID     int64
+	CurrentSchemaID  int64
+	SchemaType       string
+	SchemaID         int64
+	RelatedSnapshots []int64
+	ColumnSizes      map[string]int64 // column name to size in bytes
+}
+
+type ColSize struct {
+	ID            int64
+	Name          string
+	Size          int64
+	NullCount     int64
+	ValueCount    int64
+	AvgSizePerVal float32
+}
+
+type SchemaColSizes struct {
+	SchemaID int64
+	ColSizes []ColSize
 }

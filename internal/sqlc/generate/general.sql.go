@@ -404,6 +404,26 @@ func (q *Queries) GetSettings(ctx context.Context, userID int64) (GetSettingsRow
 	return i, err
 }
 
+const getTipForID = `-- name: GetTipForID :one
+SELECT 
+    tips.tip,
+    tips.hrefs::json AS hrefs
+FROM tips
+WHERE tips.tip_id = $1
+`
+
+type GetTipForIDRow struct {
+	Tip   string
+	Hrefs []byte
+}
+
+func (q *Queries) GetTipForID(ctx context.Context, tipID int64) (GetTipForIDRow, error) {
+	row := q.db.QueryRow(ctx, getTipForID, tipID)
+	var i GetTipForIDRow
+	err := row.Scan(&i.Tip, &i.Hrefs)
+	return i, err
+}
+
 const getUserData = `-- name: GetUserData :one
 SELECT 
     users.confirmed,

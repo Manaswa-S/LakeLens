@@ -41,7 +41,7 @@ func ReadMetadata(filePath string) (*formats.IcebergMetadata, *errs.Errorf) {
 	return iceberg, nil
 }
 
-func ReadManifest(filePath string) ([]*formats.ManifestEntry, *errs.Errorf) {
+func ReadManifest(filePath string) (*formats.ManifestData, *errs.Errorf) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -61,7 +61,7 @@ func ReadManifest(filePath string) ([]*formats.ManifestEntry, *errs.Errorf) {
 		}
 	}
 
-	recordMaps := make([]map[string]any, 0)
+	entriesMap := make([]map[string]any, 0)
 
 	for ocfr.Scan() {
 
@@ -80,15 +80,26 @@ func ReadManifest(filePath string) ([]*formats.ManifestEntry, *errs.Errorf) {
 				Message: "Avro ocf datum isn't of expected 'map[string]any' type.",
 			}
 		}
-		recordMaps = append(recordMaps, recordMap)
+		entriesMap = append(entriesMap, recordMap)
 	}
 
-	records := CleanManifest(recordMaps)
+	entries := CleanManifestEntry(entriesMap)
 
-	return records, nil
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+	ocfrMeta := ocfr.MetaData()
+
+	metadata := CleanManifestMetadata(ocfrMeta)
+
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+	return &formats.ManifestData{
+		Metadata: metadata,
+		Entries:  entries,
+	}, nil
 }
 
-func ReadSnapshot(filePath string) ([]*formats.SnapshotRecord, *errs.Errorf) {
+func ReadSnapshot(filePath string) (*formats.IcebergSnapshot, *errs.Errorf) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -132,5 +143,7 @@ func ReadSnapshot(filePath string) ([]*formats.SnapshotRecord, *errs.Errorf) {
 
 	records := CleanSnapshot(recordMaps)
 
-	return records, nil
+	return &formats.IcebergSnapshot{
+		Records: records,
+	}, nil
 }

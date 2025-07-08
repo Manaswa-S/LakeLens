@@ -50,19 +50,12 @@ func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-
 	routegrp.GET("/meta/file-dist/:lakeid", h.GetLakeFileDist)
 	routegrp.GET("/meta/bucs-check/:lakeid", h.GetAllBucsChecks)
 
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-
-
-
-	// routegrp.GET("/meta/init-data", h.GetInitData)
-
-
-
-
+	routegrp.GET("/tip/:tipid", h.GetTip)
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

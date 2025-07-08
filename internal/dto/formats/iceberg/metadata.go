@@ -19,7 +19,7 @@ type IcebergMetadata struct {
 	Properties          IcebergProperties            `json:"properties"`
 	CurrentSnapshotID   int64                        `json:"current-snapshot-id"`
 	Refs                IcebergRefs                  `json:"refs"`
-	Snapshots           []IcebergSnapshot            `json:"snapshots"`
+	Snapshots           []IcebergMetadataSnapshot    `json:"snapshots"`
 	Statistics          []IcebergStatistics          `json:"statistics"`
 	SnapshotLog         []IcebergSnapshotLog         `json:"snapshot-log"`
 	MetadataLog         []IcebergMetadataLog         `json:"metadata-log"`
@@ -70,7 +70,7 @@ type IcebergRefsMain struct {
 	Type       string `json:"type"`
 }
 
-type IcebergSnapshot struct {
+type IcebergMetadataSnapshot struct {
 	SequenceNumber int64                  `json:"sequence-number"`
 	SnapshotID     int64                  `json:"snapshot-id"`
 	TimestampMS    int64                  `json:"timestamp-ms"`

@@ -73,6 +73,12 @@ type Setting struct {
 	Shortcuts   bool
 }
 
+type Tip struct {
+	TipID int64
+	Tip   string
+	Hrefs [][]byte
+}
+
 type User struct {
 	UserID    int64
 	Email     string

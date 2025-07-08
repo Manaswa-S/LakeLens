@@ -3,6 +3,14 @@ package formats
 // Main structs used to unmarshal the snap-*.avro files of iceberg tables.
 // These are different from the snapshots found in .metadata.json files, though both contain the same data.
 
+
+// Snapshots are to be arranged in decreasing order of timestamps.
+// The most recent snapshot is [0] in the array and so on.
+
+type IcebergSnapshot struct {
+	Records []*SnapshotRecord `json:"records"`
+}
+
 type SnapshotRecord struct {
 	SequenceNumber         int64                  `avro:"sequence_number"`
 	AddedDataFilesCount    int32                  `avro:"added_data_files_count"`

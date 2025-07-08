@@ -189,3 +189,12 @@ AND locations.user_id = $1;
 INSERT INTO scans (lake_id, loc_id)
 VALUES ($1, $2)
 RETURNING scan_id;
+
+
+
+-- name: GetTipForID :one
+SELECT 
+    tips.tip,
+    tips.hrefs::json AS hrefs
+FROM tips
+WHERE tips.tip_id = $1;

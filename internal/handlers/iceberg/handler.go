@@ -85,6 +85,303 @@ func (h *IcebergHandler) GetOverviewStats(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
+func (h *IcebergHandler) GetOverviewSchema(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetOverviewSchema(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *IcebergHandler) GetOverviewPartition(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetOverviewPartition(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *IcebergHandler) GetOverviewSnapshot(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetOverviewSnapshot(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *IcebergHandler) GetOverviewGraphs(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetOverviewGraphs(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+func (h *IcebergHandler) GetSchemasList(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetSchemasList(ctx, userID, locid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *IcebergHandler) GetSchema(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	schemaid := ctx.Param("schemaid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetSchema(ctx, userID, locid, schemaid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+func (h *IcebergHandler) GetSchemaData(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	schemaid := ctx.Param("schemaid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetSchemaData(ctx, userID, locid, schemaid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+
+func (h *IcebergHandler) GetSchemaColSizes(ctx *gin.Context) {
+
+	locid := ctx.Param("locid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	schemaid := ctx.Param("schemaid")
+	if locid == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Iceberg.GetSchemaColSizes(ctx, userID, locid, schemaid)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 // func (h *IcebergHandler) AllData(ctx *gin.Context) {

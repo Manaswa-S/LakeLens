@@ -15,8 +15,8 @@ type IsIceberg struct {
 	ManifestFPaths []string
 	SnapshotFPaths []string
 	Metadata       *icebergformats.IcebergMetadata
-	Snapshot       []*icebergformats.SnapshotRecord
-	Manifest       [][]*icebergformats.ManifestEntry
+	Snapshot       []*icebergformats.IcebergSnapshot
+	Manifest       []*icebergformats.IcebergManifest
 }
 
 type IsParquet struct {

@@ -1,40 +1,88 @@
 package iceutils
 
 import (
+	"encoding/json"
+	"fmt"
 	formats "lakelens/internal/dto/formats/iceberg"
 )
 
-func CleanManifest(recordMaps []map[string]any) []*formats.ManifestEntry {
+func CleanManifestEntry(entriesMap []map[string]any) []formats.ManifestEntry {
 
-	records := make([]*formats.ManifestEntry, 0)
+	records := make([]formats.ManifestEntry, 0)
 
-	for _, recordMap := range recordMaps {
+	for _, entryMap := range entriesMap {
 
-		dataFileMap, ok := recordMap["data_file"].(map[string]any)
+		dataFileMap, ok := entryMap["data_file"].(map[string]any)
 		if !ok {
 			continue
 		}
 		manifestEntry := formats.ManifestEntry{
-			FileSequenceNumber: toNullableInt64(recordMap["file_sequence_number"]),
-			SequenceNumber:     toNullableInt64(recordMap["sequence_number"]),
-			SnapshotID:         recordMap["snapshot_id"].(map[string]any),
-			Status:             int(recordMap["status"].(int32)),
+			FileSequenceNumber: toNullableInt64(entryMap["file_sequence_number"]),
+			SequenceNumber:     toNullableInt64(entryMap["sequence_number"]),
+			SnapshotID:         entryMap["snapshot_id"].(map[string]any),
+			Status:             int(entryMap["status"].(int32)),
 			DataFile: formats.ManifestDataFile{
 				FilePath:        dataFileMap["file_path"].(string),
 				FileFormat:      dataFileMap["file_format"].(string),
 				RecordCount:     dataFileMap["record_count"].(int64),
 				FileSizeInBytes: dataFileMap["file_size_in_bytes"].(int64),
 				Partition:       dataFileMap["partition"].(map[string]any),
+				ColumnSizes:     dataFileMap["column_sizes"].(map[string]any),
+				Content:         dataFileMap["content"],
+				UpperBounds:     dataFileMap["upper_bounds"].(map[string]any),
+				LowerBounds:     dataFileMap["lower_bounds"].(map[string]any),
+				ValueCounts:     dataFileMap["value_counts"].(map[string]any),
+				NullValueCounts: dataFileMap["null_value_counts"].(map[string]any),
+				NANValueCounts:  dataFileMap["nan_value_counts"].(map[string]any),
 				// Add other fields like column stats, etc. if you want
 			},
 		}
 
-		records = append(records, &manifestEntry)
+		records = append(records, manifestEntry)
 	}
 
 	return records
 }
 
+func CleanManifestMetadata(entriesMap map[string][]byte) formats.ManifestMetadata {
+
+	var metadata formats.ManifestMetadata
+
+	metadata.AvroCodec = string(entriesMap["avro.codec"])
+	metadata.FormatVersion = string(entriesMap["format-version"])
+	metadata.PartitionSpecID = string(entriesMap["partition-spec-id"])
+	metadata.Content = string(entriesMap["content"])
+
+	var partitionSpec []formats.IcebergPartitionSpecField
+	err := json.Unmarshal(entriesMap["partition-spec"], &partitionSpec)
+	if err != nil {
+		fmt.Println(err)
+	}
+	metadata.PartitionSpec = partitionSpec
+
+	var icebergSchema formats.ManifestMetadataIcebergSchema
+	err = json.Unmarshal(entriesMap["iceberg.schema"], &icebergSchema)
+	if err != nil {
+		fmt.Println(err)
+	}
+	metadata.IcebergSchema = icebergSchema
+
+	var schema formats.IcebergSchema
+	err = json.Unmarshal(entriesMap["schema"], &schema)
+	if err != nil {
+		fmt.Println(err)
+	}
+	metadata.Schema = schema
+
+	var avroSchema map[string]any
+	err = json.Unmarshal(entriesMap["avro.schema"], &avroSchema)
+	if err != nil {
+		fmt.Println(err)
+	}
+	metadata.AvroSchema = avroSchema
+
+	return metadata
+}
 func CleanSnapshot(recordMaps []map[string]any) []*formats.SnapshotRecord {
 
 	records := make([]*formats.SnapshotRecord, 0)

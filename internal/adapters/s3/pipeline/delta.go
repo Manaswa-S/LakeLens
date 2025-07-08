@@ -50,7 +50,7 @@ func logOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *errs
 
 	for i := len(newBucket.Delta.LogFPaths) - 1; i >= 0; i-- {
 
-		fPath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Delta.LogFPaths[i])
+		fPath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, newBucket.Delta.LogFPaths[i], "")
 		if errf != nil {
 			return errf
 		}

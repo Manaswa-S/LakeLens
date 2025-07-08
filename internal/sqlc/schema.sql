@@ -139,3 +139,13 @@ CREATE TABLE IF NOT EXISTS public.locations
         ON DELETE CASCADE
         NOT VALID
 );
+
+
+
+CREATE TABLE IF NOT EXISTS public.tips
+(
+    tip_id bigint NOT NULL DEFAULT nextval('tips_tip_id_seq'::regclass),
+    tip text COLLATE pg_catalog."default" NOT NULL,
+    hrefs json[],
+    CONSTRAINT tips_pkey PRIMARY KEY (tip_id)
+);

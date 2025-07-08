@@ -10,6 +10,17 @@ func (h *IcebergHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 
 	routegrp.GET("/overview/data/:locid", h.GetOverviewData)
 	routegrp.GET("/overview/stats/:locid", h.GetOverviewStats)
+	routegrp.GET("/overview/schema/:locid", h.GetOverviewSchema)
+	routegrp.GET("/overview/partition/:locid", h.GetOverviewPartition)
+	routegrp.GET("/overview/snapshot/:locid", h.GetOverviewSnapshot)
+	routegrp.GET("/overview/graphs/:locid", h.GetOverviewGraphs)
+
+	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+	routegrp.GET("/schema/compare/list/:locid", h.GetSchemasList)
+	routegrp.GET("/schema/compare/getschema/:locid/:schemaid", h.GetSchema)
+	routegrp.GET("/schema/data/:locid/:schemaid", h.GetSchemaData)
+	routegrp.GET("/schema/colsizes/:locid/:schemaid", h.GetSchemaColSizes)
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
