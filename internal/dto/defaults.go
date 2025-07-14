@@ -26,6 +26,12 @@ type TipResp struct {
 	HRefs map[string]TipRespHRef
 }
 
+type RecentsResp struct {
+	Action      string
+	Description string
+	Time        time.Time
+}
+
 type LakeResp struct {
 	LakeID    int64
 	Name      string

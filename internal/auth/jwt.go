@@ -60,12 +60,12 @@ type AuthServCreds struct {
 	SigningKey string
 	ATTTL      int64
 	RTTTL      int64
-	
+
 	RefreshATIssuer string
 	RefrestATSub    string
 
 	AccAuthIssuer string
-	AccAuthSub string
+	AccAuthSub    string
 }
 
 type AuthService struct {
@@ -226,6 +226,12 @@ func (s *AuthService) SignRT(rtParams *RTJWTParams) (string, *errs.Errorf) {
 	issAt := time.Now().Unix()
 	expAt := issAt + s.Creds.RTTTL
 
+	// TODO: theres a massive bug here, suppose the redis db is flushed, and then server is restarted.
+	// When a user visits the home page, the '/check/auth' or '/refresh/auth' fails here as the
+	// 'signrt_ver_*' is not available. It is assumed to be set by the IncrBy command here, but in such a scenario it
+	// is accessed before it was set.
+	// It does not fail here but on redis.Get().
+	// No brain has been stormed here.
 	key := fmt.Sprintf("signrt_ver_%d", rtParams.UserID)
 	ver, err := s.RedisClient.IncrBy(s.ctx, key, 1).Result()
 	if err != nil {

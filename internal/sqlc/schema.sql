@@ -149,3 +149,20 @@ CREATE TABLE IF NOT EXISTS public.tips
     hrefs json[],
     CONSTRAINT tips_pkey PRIMARY KEY (tip_id)
 );
+
+CREATE TABLE IF NOT EXISTS public.recents
+(
+    rec_id bigint NOT NULL DEFAULT nextval('recents_rec_id_seq'::regclass),
+    user_id bigint NOT NULL,
+    action_id bigint NOT NULL,
+    "time" timestamp with time zone NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    action jsonb NOT NULL,
+    title text COLLATE pg_catalog."default" NOT NULL,
+    description text COLLATE pg_catalog."default",
+    CONSTRAINT recents_pkey PRIMARY KEY (rec_id),
+    CONSTRAINT users_recents_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.users (user_id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);

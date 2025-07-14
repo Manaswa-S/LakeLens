@@ -4,6 +4,7 @@ sql:
     queries: 
       - "queries/general.sql"
       - "queries/internal.sql"
+      - "queries/recents.sql"
     schema: "schema.sql"
     gen:
       go:

@@ -52,6 +52,17 @@ type Location struct {
 	UserID     int64
 }
 
+type Recent struct {
+	RecID       int64
+	UserID      int64
+	ActionID    int64
+	Time        pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+	Action      []byte
+	Title       string
+	Description pgtype.Text
+}
+
 type Scan struct {
 	ScanID    int64
 	LakeID    int64

@@ -165,6 +165,8 @@ func (h *ManagerHandler) RegisterNewLake(ctx *gin.Context) {
 		return
 	}
 
+	ctx.Set("new_lake_name", data.Name)
+
 	ctx.JSON(http.StatusCreated, buckets)
 }
 

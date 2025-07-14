@@ -12,6 +12,7 @@ import (
 	managerhdlr "lakelens/internal/handlers/manager"
 	publichdlr "lakelens/internal/handlers/public"
 	"lakelens/internal/middlewares"
+	tracelog "lakelens/internal/middlewares/traceLog"
 	"lakelens/internal/notifications/mailer"
 	icebergserv "lakelens/internal/services/iceberg"
 	managersrvc "lakelens/internal/services/manager"
@@ -117,12 +118,14 @@ func initRoutes(router *gin.Engine, ds *db.DataStore) error {
 		refreshAtIss: true,
 	}, redis, authService)
 
+	traceMid := tracelog.NewTraceLog(queries, redis)
+
 	// >
 
 	publicGrp := router.Group("/public")
 
 	lensGrp := router.Group("/lens")
-	lensGrp.Use(authMid.Authenticator())
+	lensGrp.Use(authMid.Authenticator(), traceMid.Capture())
 
 	// < Stash
 	stashService := stash.NewStashService(queries, redis, pool)

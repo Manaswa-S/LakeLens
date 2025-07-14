@@ -48,3 +48,37 @@ func (h *ManagerHandler) GetTip(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, response)
 }
+
+func (h *ManagerHandler) GetRecentActivity(ctx *gin.Context) {
+
+	offset := ctx.Param("offset")
+	if offset == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Manager.GetRecentActivity(ctx, userID, offset)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+
+}

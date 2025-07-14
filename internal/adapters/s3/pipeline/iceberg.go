@@ -156,6 +156,11 @@ func maniOps(ctx *gin.Context, client *s3.Client, newBucket *dto.NewBucket) *err
 
 	for _, record := range snapRecords {
 
+		// TODO: ok so theres a problem here,
+		// suppose theres a bucket with a table in it, the table files were copied from another bucket that has the og table.
+		// so now the files all have their names according to the og bucket but the new bucket has a different name,
+		// and hence paths/locations don't match then.
+		// So, maybe we can get the og name from the 'location' field or something.
 		filePath, errf := fetcher.FetchNdSave(ctx, client, newBucket.Data.Name, "", record.ManifestPath)
 		if errf != nil {
 			return errf
