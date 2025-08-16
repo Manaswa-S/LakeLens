@@ -1,0 +1,15 @@
+Copyright (c) 2025 Manaswa Sangamnere
+
+All Rights Reserved.
+
+This repository and all its contents (code, documentation, assets, and other materials) are proprietary and confidential.  
+
+Unauthorized use, reproduction, modification, distribution, or public display of any part of this repository is strictly prohibited.  
+
+By accessing or using this repository, you agree not to:
+
+1. Fork, clone, copy, or distribute any portion of this project.
+2. Modify, adapt, or create derivative works based on this project.
+3. Use this project for commercial or non-commercial purposes without explicit written permission from the copyright holder.
+
+Any violation may result in legal action.
