@@ -232,6 +232,8 @@ func (s *AuthService) SignRT(rtParams *RTJWTParams) (string, *errs.Errorf) {
 	// is accessed before it was set.
 	// It does not fail here but on redis.Get().
 	// No brain has been stormed here.
+	// 1) either have a check if err == redis.Nil and set the key and continue,
+	// 2) Better, check and set the key in NewAuthService constructor.
 	key := fmt.Sprintf("signrt_ver_%d", rtParams.UserID)
 	ver, err := s.RedisClient.IncrBy(s.ctx, key, 1).Result()
 	if err != nil {

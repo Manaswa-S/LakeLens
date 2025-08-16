@@ -166,3 +166,13 @@ CREATE TABLE IF NOT EXISTS public.recents
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+
+CREATE TABLE IF NOT EXISTS public.tours
+(
+    tour_id bigint NOT NULL DEFAULT nextval('tours_tour_id_seq'::regclass),
+    user_id bigint NOT NULL,
+    version integer,
+    shown_at timestamp with time zone,
+    CONSTRAINT tour_pkey PRIMARY KEY (tour_id)
+);

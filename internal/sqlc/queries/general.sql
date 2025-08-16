@@ -81,7 +81,8 @@ WHERE goauth.user_id = $1;
 
 -- name: InsertNewSettings :exec
 INSERT INTO settings (user_id)
-VALUES ($1);
+VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING;
 
 -- name: UpdateSettings :exec
 UPDATE settings

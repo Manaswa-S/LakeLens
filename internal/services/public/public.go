@@ -188,6 +188,14 @@ func (s *PublicService) AccAuth(ctx *gin.Context, creds *dto.UserCreds) (*dto.Au
 		}
 	}
 
+	err = s.Queries.InsertNewTour(ctx, userID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to insert new tour : " + err.Error(),
+		}
+	}
+
 	userData, err := s.Queries.GetUserData(ctx, userID)
 	if err != nil {
 		return nil, &errs.Errorf{

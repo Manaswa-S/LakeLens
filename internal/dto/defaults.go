@@ -95,6 +95,10 @@ type SearchChoice struct {
 	Link  string
 }
 
+type FeatureTour struct {
+	LastTour int32
+}
+
 type LakeDetails struct {
 	Details   *LakeResp
 	Locations []*LocResp

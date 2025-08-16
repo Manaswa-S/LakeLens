@@ -16,6 +16,7 @@ type DataStore struct {
 	Queries *sqlc.Queries
 	Redis *redis.Client
 }
+
 func NewDataStore() (*DataStore, error) {
 
 	ds := new(DataStore)

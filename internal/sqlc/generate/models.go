@@ -90,6 +90,13 @@ type Tip struct {
 	Hrefs [][]byte
 }
 
+type Tour struct {
+	TourID  int64
+	UserID  int64
+	Version pgtype.Int4
+	ShownAt pgtype.Timestamptz
+}
+
 type User struct {
 	UserID    int64
 	Email     string

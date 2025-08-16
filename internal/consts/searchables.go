@@ -8,3 +8,5 @@ var SearchChoices = []dto.SearchChoice{
 		Link:  "/newlake",
 	},
 }
+
+var LatestFeaturesTour int32 = 1 // should we greater than 0, always.

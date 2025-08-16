@@ -29,6 +29,8 @@ func (h *ManagerHandler) RegisterRoutes(routegrp *gin.RouterGroup) {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 	routegrp.GET("/search/choices", h.GetSearchChoices)
+	routegrp.GET("/features/tour", h.GetFeaturesTour)
+	routegrp.PATCH("/features/tour/:version", h.UpdateFeaturesTour)
 	routegrp.GET("/recent/activity/:offset", h.GetRecentActivity)
 
 	// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

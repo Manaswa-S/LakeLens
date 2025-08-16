@@ -61,6 +61,42 @@ func (q *Queries) GetRecents(ctx context.Context, arg GetRecentsParams) ([]GetRe
 	return items, nil
 }
 
+const getTour = `-- name: GetTour :one
+SELECT 
+    tours.tour_id,
+    tours.version,
+    tours.shown_at
+FROM tours
+WHERE tours.user_id = $1
+`
+
+type GetTourRow struct {
+	TourID  int64
+	Version pgtype.Int4
+	ShownAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetTour(ctx context.Context, userID int64) (GetTourRow, error) {
+	row := q.db.QueryRow(ctx, getTour, userID)
+	var i GetTourRow
+	err := row.Scan(&i.TourID, &i.Version, &i.ShownAt)
+	return i, err
+}
+
+const insertNewTour = `-- name: InsertNewTour :exec
+
+
+INSERT INTO tours (user_id)
+VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING
+`
+
+// ////////////////////////////////////////////////////////////////////////////////////////////////
+func (q *Queries) InsertNewTour(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, insertNewTour, userID)
+	return err
+}
+
 const insertRecentsBulk = `-- name: InsertRecentsBulk :exec
 INSERT INTO recents (user_id, action_id, time, action, title, description)
 SELECT UNNEST($1::bigint[]), UNNEST($2::bigint[]), UNNEST($3::timestamptz[]), UNNEST($4::jsonb[]), UNNEST($5::text[]), UNNEST($6::text[])
@@ -133,4 +169,23 @@ func (q *Queries) UnResolveLakeName(ctx context.Context, arg UnResolveLakeNamePa
 	var lake_id int64
 	err := row.Scan(&lake_id)
 	return lake_id, err
+}
+
+const updateTourStatus = `-- name: UpdateTourStatus :exec
+UPDATE tours
+SET 
+    version = $2,
+    shown_at = $3
+WHERE user_id = $1
+`
+
+type UpdateTourStatusParams struct {
+	UserID  int64
+	Version pgtype.Int4
+	ShownAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateTourStatus(ctx context.Context, arg UpdateTourStatusParams) error {
+	_, err := q.db.Exec(ctx, updateTourStatus, arg.UserID, arg.Version, arg.ShownAt)
+	return err
 }

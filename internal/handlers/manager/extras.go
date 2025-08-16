@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"lakelens/internal/consts"
 	"lakelens/internal/consts/errs"
+	"lakelens/internal/dto"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,65 @@ func (h *ManagerHandler) GetSearchChoices(ctx *gin.Context) {
 	// TODO: these should also include other user related choices, his history, most recent, etc.
 
 	ctx.JSON(http.StatusOK, consts.SearchChoices)
+}
+
+func (h *ManagerHandler) GetFeaturesTour(ctx *gin.Context) {
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	response, errf := h.Manager.GetFeaturesTour(ctx, userID)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+
+}
+
+func (h *ManagerHandler) UpdateFeaturesTour(ctx *gin.Context) {
+
+	version := ctx.Param("version")
+	if version == "" {
+		ctx.JSON(http.StatusBadRequest, errs.Errorf{
+			Type:      errs.ErrMissingField,
+			Message:   "Missing url params.",
+			ReturnRaw: true,
+		})
+		return
+	}
+
+	userID, errf := h.getUserID(ctx)
+	if errf != nil {
+		ctx.JSON(http.StatusBadRequest, errf)
+		return
+	}
+
+	errf = h.Manager.UpdateFeaturesTour(ctx, userID, version)
+	if errf != nil {
+		fmt.Println(errf.Message)
+		if errf.ReturnRaw {
+			ctx.JSON(http.StatusBadRequest, errf)
+		} else {
+			ctx.Set("error", errf.Message)
+			ctx.Status(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, dto.GoodResp{
+		Message: "Tour status updated.",
+	})
 }
 
 func (h *ManagerHandler) GetTip(ctx *gin.Context) {

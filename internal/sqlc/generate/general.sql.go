@@ -535,6 +535,7 @@ func (q *Queries) InsertNewScan(ctx context.Context, arg InsertNewScanParams) (i
 const insertNewSettings = `-- name: InsertNewSettings :exec
 INSERT INTO settings (user_id)
 VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING
 `
 
 func (q *Queries) InsertNewSettings(ctx context.Context, userID int64) error {

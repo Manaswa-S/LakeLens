@@ -34,3 +34,34 @@ SELECT
     COUNT(locations.loc_id)
 FROM locations
 WHERE locations.lake_id = $1;
+
+
+
+-- ////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+-- name: InsertNewTour :exec
+INSERT INTO tours (user_id)
+VALUES ($1)
+ON CONFLICT (user_id) DO NOTHING;
+
+-- name: GetTour :one
+SELECT 
+    tours.tour_id,
+    tours.version,
+    tours.shown_at
+FROM tours
+WHERE tours.user_id = $1;
+
+-- name: UpdateTourStatus :exec
+UPDATE tours
+SET 
+    version = $2,
+    shown_at = $3
+WHERE user_id = $1;
+
+
+
+
+
+

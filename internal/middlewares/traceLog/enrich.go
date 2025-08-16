@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// TODO: enrich is in-efficient, also this is not dynamic on the timeline, so any title set today remains so forever.
+// we do not have any way to manipulate certain fields, like names that changed, counts that changed, etc.
+
 // Experimental
 // A map to note what each actionID does etc
 // ActionID :

@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"lakelens/internal/consts/errs"
 	"lakelens/internal/dto"
+	sqlc "lakelens/internal/sqlc/generate"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (s *ManagerService) GetTip(ctx *gin.Context, userID int64, tipid string) (*dto.TipResp, *errs.Errorf) {
@@ -37,6 +40,46 @@ func (s *ManagerService) GetTip(ctx *gin.Context, userID int64, tipid string) (*
 		Tip:   tipData.Tip,
 		HRefs: hrefs,
 	}, nil
+}
+
+func (s *ManagerService) GetFeaturesTour(ctx *gin.Context, userID int64) (*dto.FeatureTour, *errs.Errorf) {
+
+	tour, err := s.Queries.GetTour(ctx, userID)
+	if err != nil {
+		return nil, &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to get tour data : " + err.Error(),
+		}
+	}
+
+	return &dto.FeatureTour{
+		LastTour: tour.Version.Int32,
+	}, nil
+}
+
+func (s *ManagerService) UpdateFeaturesTour(ctx *gin.Context, userID int64, versionStr string) *errs.Errorf {
+
+	version, err := strconv.ParseInt(versionStr, 10, 64)
+	if err != nil {
+		return &errs.Errorf{
+			Type:    errs.ErrBadForm,
+			Message: "Failed to parse version str to int64 : " + err.Error(),
+		}
+	}
+
+	err = s.Queries.UpdateTourStatus(ctx, sqlc.UpdateTourStatusParams{
+		UserID:  userID,
+		Version: pgtype.Int4{Int32: int32(version), Valid: true},
+		ShownAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	})
+	if err != nil {
+		return &errs.Errorf{
+			Type:    errs.ErrDBQuery,
+			Message: "Failed to update tour status : " + err.Error(),
+		}
+	}
+
+	return nil
 }
 
 func (s *ManagerService) GetRecentActivity(ctx *gin.Context, userID int64, offset string) ([]*dto.RecentsResp, *errs.Errorf) {
