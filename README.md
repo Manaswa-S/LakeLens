@@ -18,6 +18,12 @@ A platform to explore, audit and analyze your data lake tables Iceberg, Delta an
 
 ---
 
+<img src="visuals/iceberg-overview.png" width="100%" />
+<img src="visuals/iceberg-schema.png" width="48%" />
+<img src="visuals/dashboard-home.png" width="48%" />
+
+---
+
 ### Currently Working On
 -   Cache invalidation ;) It's expensive/tricky to determine updates in virtual file systems (like S3) where event propagation doesn't occur.
 -   Frontend for all table types (it has to be customized for each type to maintain familarity for the user)
